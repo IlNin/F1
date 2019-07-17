@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>My first three.js app</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+    
+	<body>
+		<script src="js/three.js"></script>
+        <script src="js/OBJLoader.js"></script>
+        
+		<script>
+            var scene = new THREE.Scene(); // We create the scene
+            scene.background = new THREE.Color(0xffffff); // The background is white
+            
+            var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000); // We create a perspective camera. (Parameters: fov, aspect ratio, near plane, far plane)
+            camera.position.set(-8,5,4); // We move the camera from the origin position
+            camera.up = new THREE.Vector3(0,1,0); // The orientation of the camera
+            camera.lookAt(new THREE.Vector3(0,0,0)); // We tell the camera to tell at the origin of the scene
+            
+            var renderer = new THREE.WebGLRenderer({antialias: true}); // We create a WebGLRenderer with antialiasing enabled
+            renderer.setSize(window.innerWidth, window.innerHeight); // The renderer has the same size of the browser
+            document.body.appendChild(renderer.domElement); // We add the renderer (which is a canvas) to the body of the HTML file
+            
+            var ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // We create a white ambientLight 
+            scene.add(ambientLight);
+            
+            var pointLight = new THREE.PointLight(0xffffff, 1.0); // We create a white pointLight
+            pointLight.position.set(9.0, 8.0, 0.0);
+            scene.add(pointLight);
+            
+            var pointLight2 = new THREE.PointLight(0xffffff, 1.0); // We create a second white pointLight
+            pointLight2.position.set(-2.0, 5.0, 4.0);
+            scene.add(pointLight2);
+            
+            var loader = new THREE.ObjectLoader(); // Loader we use the load the F1 car
+            var car = new THREE.Group(); // The F1 car will be saved here
+
+            loader.load('carMenu.json', function (object) {
+                car = object; // We F1 car can now be used outside the loader
+                object.traverse(function (child) { // We print on the console the names of the object's children
+                    console.log(child.name); } );
+                object.rotateY(-0.3); 
+                scene.add(object); }, // We add the car to the scene
+                
+                                  function (xhr) { // We print this if the car is loaded correctly
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
+                
+                                  function ( error ) { // We print this if an error has occurred during the loading
+                console.log('An error happened'); } );
+            
+            function animate() {
+                car.rotateY(0.002);  
+                requestAnimationFrame(animate); // The canvas is updated at each frame
+                renderer.render(scene, camera); } // We use the renderer to render the scene and the camera
+            
+            setTimeout(function() { // The timeout gives time to load the car, else the variable "car" can't access the children objects
+                animate() }, 20); // We call the function which will render the scene
+		</script>
+	</body>
+</html>
