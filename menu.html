@@ -1,65 +1,162 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset=utf-8>
-		<title>My first three.js app</title>
-		<style>
-			body { margin: 0; }
-			canvas { width: 100%; height: 100% }
-		</style>
-	</head>
+    <head>
+        <meta charset=utf-8>
+        <title>Formula Driver - Menu</title>
+        <style>
+            body { margin: 0; }
+            canvas { width: 100%; height: 100% }
+        </style>
+        <link rel="stylesheet" type="text/css" href="style.css"/>
+    </head>
     
-	<body>
-		<script src="js/three.js"></script>
+    <body>
+        <script src="js/three.js"></script>
         <script src="js/OBJLoader.js"></script>
         
-		<script>
-            var scene = new THREE.Scene(); // We create the scene
-            scene.background = new THREE.Color(0xffffff); // The background is white
+        <script>
+            // Inizializzazione variabili
+            var scene;
+            var camera;
+            var renderer;
+            var ambientLight;
+            var pointLight;
+            var pointLight2;
+            var loader;
+            var car;
             
-            var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000); // We create a perspective camera. (Parameters: fov, aspect ratio, near plane, far plane)
-            camera.position.set(-8,5,4); // We move the camera from the origin position
-            camera.up = new THREE.Vector3(0,1,0); // The orientation of the camera
-            camera.lookAt(new THREE.Vector3(0,0,0)); // We tell the camera to tell at the origin of the scene
+            var title;
+            var description;
+            var easyButton;
+            var mediumButton;
+            var hardButton;
+            var playButton;
             
-            var renderer = new THREE.WebGLRenderer({antialias: true}); // We create a WebGLRenderer with antialiasing enabled
-            renderer.setSize(window.innerWidth, window.innerHeight); // The renderer has the same size of the browser
-            document.body.appendChild(renderer.domElement); // We add the renderer (which is a canvas) to the body of the HTML file
+            var difficulty = 1;
             
-            var ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // We create a white ambientLight 
-            scene.add(ambientLight);
+            function createMenu() {
+                scene = new THREE.Scene(); // We create the scene
+                scene.background = new THREE.Color(0xffffff); // The background is white
             
-            var pointLight = new THREE.PointLight(0xffffff, 1.0); // We create a white pointLight
-            pointLight.position.set(9.0, 8.0, 0.0);
-            scene.add(pointLight);
+                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000); // We create a perspective camera. (Parameters: fov, aspect ratio, near plane, far plane)
+                camera.position.set(-8,5,4); // We move the camera from the origin position
+                camera.up = new THREE.Vector3(0,1,0); // The orientation of the camera
+                camera.lookAt(new THREE.Vector3(0,0,0)); // We tell the camera to tell at the origin of the scene
             
-            var pointLight2 = new THREE.PointLight(0xffffff, 1.0); // We create a second white pointLight
-            pointLight2.position.set(-2.0, 5.0, 4.0);
-            scene.add(pointLight2);
+                renderer = new THREE.WebGLRenderer({antialias: true}); // We create a WebGLRenderer with antialiasing enabled
+                renderer.setSize(window.innerWidth, window.innerHeight); // The renderer has the same size of the browser
+                document.body.appendChild(renderer.domElement); // We add the renderer (which is a canvas) to the body of the HTML file
             
-            var loader = new THREE.ObjectLoader(); // Loader we use the load the F1 car
-            var car = new THREE.Group(); // The F1 car will be saved here
+                ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // We create a white ambientLight 
+                scene.add(ambientLight);
+            
+                pointLight = new THREE.PointLight(0xffffff, 1.0); // We create a white pointLight
+                pointLight.position.set(9.0, 8.0, 0.0);
+                scene.add(pointLight);
+            
+                pointLight2 = new THREE.PointLight(0xffffff, 1.0); // We create a second white pointLight
+                pointLight2.position.set(-2.0, 5.0, 4.0);
+                scene.add(pointLight2);
+            
+                loader = new THREE.ObjectLoader(); // Loader we use the load the F1 car
+                car = new THREE.Group(); // The F1 car will be saved here
 
-            loader.load('carMenu.json', function (object) {
-                car = object; // We F1 car can now be used outside the loader
-                object.traverse(function (child) { // We print on the console the names of the object's children
-                    console.log(child.name); } );
-                object.rotateY(-0.3); 
-                scene.add(object); }, // We add the car to the scene
+                loader.load('models.json', function (object) {
+                    car = object; // We F1 car can now be used outside the loader
+                    object.traverse(function (child) { // We print on the console the names of the object's children
+                        console.log(child.name); } );
+                    object.rotateY(-0.3); // We slightly rotate the object for better presentation
+                    scene.add(object); }, // We add the car to the scene
                 
-                                  function (xhr) { // We print this if the car is loaded correctly
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
+                                    function (xhr) { // We print this if the car is loaded correctly
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
                 
-                                  function ( error ) { // We print this if an error has occurred during the loading
-                console.log('An error happened'); } );
+                                    function ( error ) { // We print this if an error has occurred during the loading
+                    console.log('An error happened'); } );
+               
+                title = document.createElement('div');
+                title.id = "title";
+                title.innerHTML = "Formula Driver";
+                document.body.appendChild(title);
+                
+                description = document.createElement('div');
+                description.id = "description";
+                description.innerHTML = "Synopsis: <br>";
+                description.innerHTML += "It was supposed to be an easy weekend, but after an initial crash at the first corner of the race, you find yourself in the last place.<br>";
+                description.innerHTML += "Not all hope is lost however.<br>";
+                description.innerHTML += "Your car is still the fastest of the grid and the layout of the track, an unnatural long straight, gives you ample possibilities to pass your rivals.<br>";
+                description.innerHTML += "See you on the track, driver!<br><br>";
+                description.innerHTML += "Controls: <br>"
+                description.innerHTML += "- 'a': Move your car to the left.<br>";
+                description.innerHTML += "- 'd': Move your car to the right.<br>";
+                description.innerHTML += "- 'v': Change between the two cameras: third-person or cockpit view.<br><br>";
+                description.innerHTML += "Set difficulty: <br>";
+                document.body.appendChild(description);
+                
+                easyButton = document.createElement('input'); // Creates the radio button for the easy difficulty
+                easyButton.setAttribute('type', 'radio');
+                easyButton.setAttribute('name', difficulty);
+                easyButton.id = "Easy";
+                description.appendChild(easyButton);
+                description.innerHTML += "Easy&nbsp";
+                
+                mediumButton = document.createElement('input'); // Creates the radio button for the medium difficulty
+                mediumButton.setAttribute('type', 'radio');
+                mediumButton.setAttribute('name', difficulty);
+                mediumButton.id = "Medium";
+                mediumButton.setAttribute('checked', "checked"); // The medium difficulty is selected by default (for some reason 'mediumBotton.checked = true' didn't work...)
+                description.appendChild(mediumButton);
+                description.innerHTML += "Medium&nbsp";
+                
+                hardButton = document.createElement('input'); // Creates the radio button for the hard difficulty
+                hardButton.setAttribute('type', 'radio');
+                hardButton.setAttribute('name', difficulty);
+                hardButton.id = "Hard";
+                description.appendChild(hardButton);
+                description.innerHTML += "Hard<br><br>";
+                
+                playButton = document.createElement('button'); // Creates the Play button
+                playButton.id = "Play";
+                playButton.innerHTML = "> > > > > > > > > > > PLAY < < < < < < < < < <";
+                description.appendChild(playButton);
+                
+                document.getElementById("Easy").onchange = function() { // For some reason the radio buttons didn't work correctly on their own, so I had to write all the conditions myself
+                    this.setAttribute('checked', "checked"); 
+                    document.getElementById("Medium").setAttribute('checked', false);
+                    document.getElementById("Hard").setAttribute('checked', false); };
+                
+                document.getElementById("Medium").onchange = function() { 
+                    this.setAttribute('checked', "checked");
+                    document.getElementById("Easy").setAttribute('checked', false); 
+                    document.getElementById("Hard").setAttribute('checked', false); };
+                    
+                document.getElementById("Hard").onchange = function() { 
+                    this.setAttribute('checked', "checked");
+                    document.getElementById("Easy").setAttribute('checked', false);
+                    document.getElementById("Medium").setAttribute('checked', false); };
+                
+                playButton.onclick = function() {
+                    console.log(document.getElementById("Easy").getAttribute('checked') == "checked");
+                    console.log(document.getElementById("Medium").getAttribute('checked') == "checked");
+                    console.log(document.getElementById("Hard").getAttribute('checked') == "checked");
+                    if (document.getElementById("Easy").getAttribute('checked') == "checked") {
+                        console.log("Ho premuto Easy"); }
+                    else if (document.getElementById("Medium").getAttribute('checked') == "checked") {
+                        console.log("Ho premuto Medium"); }
+                    else {
+                        console.log("Ho premuto Hard"); } }; }
             
-            function animate() {
-                car.rotateY(0.002);  
-                requestAnimationFrame(animate); // The canvas is updated at each frame
+            function animateMenu() {
+                car.rotateY(0.002); // The car rotates slowly on the Y axis
+                requestAnimationFrame(animateMenu); // The canvas is updated at each frame
                 renderer.render(scene, camera); } // We use the renderer to render the scene and the camera
             
+            function init() { 
+                createMenu();
+                animateMenu(); }
+                
             setTimeout(function() { // The timeout gives time to load the car, else the variable "car" can't access the children objects
-                animate() }, 20); // We call the function which will render the scene
-		</script>
-	</body>
+                init() }, 20); // We create the menu and animate it
+        </script>
+    </body>
 </html>
