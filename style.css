@@ -1,0 +1,44 @@
+#title {
+    position: absolute; /* Allows the text to be placed ON TOP of the canvas */
+    top: 12%; /* The text must be in the (relative) upper part of the page */
+    left: 5%; /* The text must be in the (relative) most left part of the page */
+    width: 300px; /* The logo must be 300 pixels wide */
+    color: red; /* The logo is red */
+    outline: 5px solid black; /* We create a black, 5 pixel wide outline around the logo */
+    background: yellow; /* The background inside the outline is white */
+    padding-left: 5px; /* We put a little of empty space at the left */
+    padding-right: 6px; /* The same on the right side */
+    font-size: 300%; /* The logo must be big */
+    z-index: 100; /* z value of the logo */
+    display: block; /* Displays the element as a block that takes the whole width */
+}
+
+#description {
+    position: absolute;
+    top: 25%;
+    left: 5%;
+    width: 300px;
+    color: black;
+    outline: 5px solid black;
+    background: white;
+    padding-left: 5px; 
+    padding-right: 6px;
+    padding-bottom: 5px; 
+    z-index: 100;
+    display: block;
+}
+
+#hud  {
+    position: absolute;
+    top: 80%;
+    left: 5%;
+    width: 300px;
+    color: black;
+    outline: 5px solid black;
+    background: white;
+    padding-left: 5px; 
+    padding-right: 6px;
+    padding-bottom: 5px; 
+    z-index: 100;
+    display: block;
+}

@@ -15,7 +15,7 @@
         <script src="js/OBJLoader.js"></script>
         
         <script>
-            // Inizializzazione variabili
+            // Global variables
             var scene;
             var camera;
             var renderer;
@@ -23,7 +23,7 @@
             var pointLight;
             var pointLight2;
             var loader;
-            var car;
+            var models;
             
             var title;
             var description;
@@ -31,8 +31,10 @@
             var mediumButton;
             var hardButton;
             var playButton;
+            var hud;
             
             var menuAnimation;
+            var gameplayAnimation;
             var leftOrRight = 0; // 0: neutral, 1: left, 2: right
             var cockpit = true; // true: cockpit view, false: third-person camera
             
@@ -43,12 +45,23 @@
             var tyreTurning = 0.03; // How much the car's tyres rotate when turning the wheel at each frame
             var tyreSpeed = 0.05; // How fast the tyres move
             var speed = 0.005; // The velocity of the car (aka how much the objects on the road move)
-            var spawnPoint = 0.6; // Coordinate X where the new objects on the road should spawn
+            var spawnPoint = 0.5; // Coordinate X where the new objects on the road should spawn
+            
+            var collisionBoxPlayer;
+            var collisionBoxPlayerVisible;
+            var collisionOpponent;
+            var collisionOpponentVisible;
             
             var difficulty = 1;
+            var maxOpponents = 8; // Max number of concurrent opponents on the track
+            var opponents = 1; // The game starts with an opponent car already present on track
+            var carSpawner;
+            var passes = 0; // How many opponent cars the player has passed
+            
             var source = 'models.json'; // Where to find the models
             
-            function createMenu() {
+            // Sets up the basics of the scene. Auxiliary function of createMenu()
+            function setScene() {
                 scene = new THREE.Scene(); // We create the scene
                 scene.background = new THREE.Color(0xffffff); // The background is white
             
@@ -70,34 +83,50 @@
             
                 pointLight2 = new THREE.PointLight(0xffffff, 1.0); // We create a second white pointLight
                 pointLight2.position.set(-2.0, 5.0, 4.0);
-                scene.add(pointLight2);
+                scene.add(pointLight2); }
             
-                loader = new THREE.ObjectLoader(); // Loader we use the load the F1 car
-                car = new THREE.Group(); // The F1 car will be saved here
-
-                loader.load(source, function (object) {
-                    car = object; // We F1 car can now be used outside the loader
+            // Loads the models in the .json file and add them to the scene. Auxiliary function of createMenu()
+            function modelsLoader() {
+                loader = new THREE.ObjectLoader(); // Loader we use the load the models
+                models = new THREE.Group(); // The 3D models will be saved here
+                
+                loader.load(source, 
+                                    function (object) {
+                    models = object; // The models can now be used outside the loader
                     object.traverse(function (child) { // We print on the console the names of the object's children
                         console.log(child.name); } );
-                    object.rotateY(-0.3); // We slightly rotate the object for better presentation
-                    object.getObjectByName("Torso Cockpit").visible = false;
+                    object.rotateY(-0.3); // We slightly rotate the models for better presentation when the game first loads
+                    object.getObjectByName("Torso Cockpit").visible = false; // We hide the children that must NOT show up in the menu
                     object.getObjectByName("Left Hand").visible = false;
                     object.getObjectByName("Right Hand").visible = false;
                     object.getObjectByName("Gameplay Road").visible = false;
-                    scene.add(object); }, // We add the car to the scene
+                    collisionBoxPlayerVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Front")); // We create an helperBox, which will help us visualize the collision box in the game itself for DEBUGGING purposes
+                    collisionBoxPlayerVisible.scale.set(1.0, 0.8, 0.1); // We resize the boxHelper to better fit the front the car
+                    collisionBoxPlayerVisible.updateMatrix(); // We update the matrix, so the changes take place
+                    collisionBoxPlayerVisible.visible = false;
+                    object.getObjectByName("Front").add(collisionBoxPlayerVisible); // Add the helperBox to the scene so we can see it
+                    collisionBoxOpponentVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Opponent Back")); // We now do the same for the opponent car's back
+                    collisionBoxOpponentVisible.scale.set(1.4, 0.8, 0.1);
+                    collisionBoxOpponentVisible.updateMatrix();
+                    collisionBoxOpponentVisible.name = "Collision Box Visible"; // We add a name, so the box can be referenced later by the getObjectByName() function
+                    collisionBoxOpponentVisible.visible = false;
+                    object.getObjectByName("Opponent Back").add(collisionBoxOpponentVisible);
+                    scene.add(object);  }, // We add the models to the scene
                 
-                                    function (xhr) { // We print this if the car is loaded correctly
+                                    function (xhr) { // We print this if the models are loaded correctly
                     console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
                 
                                     function ( error ) { // We print this if an error has occurred during the loading
-                    console.log('An error happened'); } );
-               
-                title = document.createElement('div');
-                title.id = "title";
+                    console.log('An error happened'); } ); }
+            
+            // Creates the logo, description and buttons in the menu. Auxiliary function of createMenu()
+            function createMenuText() {
+                title = document.createElement('div'); // We create the title logo of the game
+                title.id = "title"; // How the logo should be rendered is detailed in the style.css file
                 title.innerHTML = "Formula Driver";
                 document.body.appendChild(title);
                 
-                description = document.createElement('div');
+                description = document.createElement('div'); // We create the paragraph with the game's description and options
                 description.id = "description";
                 description.innerHTML = "Synopsis: <br>";
                 description.innerHTML += "It was supposed to be an easy weekend, but after an initial crash at the first corner of the race, you find yourself in the last place.<br>";
@@ -138,8 +167,7 @@
                 playButton.innerHTML = "> > > > > > > > > > > PLAY < < < < < < < < < <";
                 description.appendChild(playButton);
                 
-                document.getElementById("Easy").onchange = function() { // For some reason the radio buttons didn't work correctly on their own, so I had to write all the conditions myself
-                    thisd .setAttribute('checked', "checked"); 
+                document.getElementById("Easy").onchange = function() { // For some reason the radio buttons didn't work correctly on their own, so I had to write all the conditions manually
                     document.getElementById("Medium").setAttribute('checked', false);
                     document.getElementById("Hard").setAttribute('checked', false); };
                 
@@ -153,7 +181,7 @@
                     document.getElementById("Easy").setAttribute('checked', false);
                     document.getElementById("Medium").setAttribute('checked', false); };
                 
-                playButton.onclick = function() {
+                playButton.onclick = function() { // The Play button is pressed
                     /* console.log(document.getElementById("Easy").getAttribute('checked') == "checked");
                     console.log(document.getElementById("Medium").getAttribute('checked') == "checked");
                     console.log(document.getElementById("Hard").getAttribute('checked') == "checked");
@@ -164,37 +192,60 @@
                     else {
                         console.log("Ho premuto Hard"); } */
                     createGameplay(); }; }
-            
+                
+            // Creates the menu of the game. Auxiliary function of init()
+            function createMenu() {
+                setScene();
+                modelsLoader();
+                createMenuText(); }
+             
+            // Animates the menu. Auxiliary function of init()
             function animateMenu() {
-                car.rotateY(0.002); // The car rotates slowly on the Y axis
+                models.rotateY(0.002); // The models rotate slowly on the Y axis
                 menuAnimation = requestAnimationFrame(animateMenu); // The canvas is updated at each frame
                 renderer.render(scene, camera); } // We use the renderer to render the scene and the camera
             
+            // Spawn a new opponent car for the first time when the game begins. Auxiliary function of createGameplay()
+            function createInitialCars() {
+                    opponents += 1;
+                    if (opponents > maxOpponents) {
+                        clearInterval(carSpawner); }
+                    else {
+                        createRandomCar(); } }
+            
+            // Creates the Gameplay scene coming from the menu.
             function createGameplay() {
-                cancelAnimationFrame(menuAnimation);
+                cancelAnimationFrame(menuAnimation); // Stops the spinning animation of the menu
                 
-                car.getObjectByName("Human").visible = false;
-                car.getObjectByName("Pit Road").visible = false;
-                car.getObjectByName("Gameplay Road").visible = true;
-                car.getObjectByName("Torso Cockpit").visible = true;
-                car.getObjectByName("Left Hand").visible = true;
-                car.getObjectByName("Right Hand").visible = true;
+                models.getObjectByName("Human").visible = false; // Renders invisible the parts that are not needed in gameplay
+                models.getObjectByName("Pit Road").visible = false;
+                models.getObjectByName("Gameplay Road").visible = true; // Renders visible the parts that are needed in gameplay
+                models.getObjectByName("Torso Cockpit").visible = true;
+                models.getObjectByName("Left Hand").visible = true;
+                models.getObjectByName("Right Hand").visible = true;
                 
-                document.body.removeChild(title);
-                document.body.removeChild(description);
-                car.rotation.set(0, 3.6, 0);
+                document.body.removeChild(title); // Remove the logo
+                document.body.removeChild(description); // Remove the description with the buttons
+                
+                models.rotation.set(0, 3.6, 0); // Rotates the scene to better fit the gameplay
+                scene.background = new THREE.Color(0xADD8E6); // Light blue background
+                camera.position.set(0.6, 2.1, -0.3); // We set the cockpit cam
+                camera.fov = 70; // We change the FOV
+                camera.updateProjectionMatrix(); // We update the camera projection matrix so that we can apply the above changes
+               
+                carSpawner = setInterval(createInitialCars, 800); // We spawn a new inital opponent car every second
+                
+                hud = document.createElement('div'); // We create the paragraph with the game's description and options
+                hud.id = "hud";
+                hud.innerHTML = "Passes: 0";
+                document.body.appendChild(hud);
 
-                scene.background = new THREE.Color(0xADD8E6);
-                camera.position.set(0.6, 2.1, -0.3);
-                camera.fov = 70;
-                camera.updateProjectionMatrix();
-
-                document.onkeydown = function() {
-                    if (event.keyCode == 65) {
+                document.onkeydown = function() { 
+                    if (event.keyCode == 65) { // The player presses 'a': the car needs to turn left
                         leftOrRight = 1; }
-                    else if (event.keyCode == 68) {
+                    else if (event.keyCode == 68) { // The player presses 'd': the car needs to turn right
                         leftOrRight = 2; } 
-                    else if (event.keyCode == 86) {
+                    else if (event.keyCode == 86) { // The player presses 'v': switches between the two cameras
                         if (cockpit == true) {
                             camera.position.set(-5.6, 5.1, 2.7);
                             cockpit = false; }
@@ -202,79 +253,116 @@
                             camera.position.set(0.6, 2.1, -0.3);
                             cockpit = true; } } };
                         
-                document.onkeyup = function() {
-                    if (event.keyCode == 65 || event.keyCode == 68) {
+                document.onkeyup = function() { 
+                    if (event.keyCode == 65 || event.keyCode == 68) { // The player stops turning
                         leftOrRight = 0; } };
                         
-                    
                 animateGameplay(); }
-                
-            function animateGameplay() {     
-                var rotazione = car.getObjectByName("Left Anterior Tyre").rotation;
-                if (leftOrRight == 1 && car.getObjectByName("Gameplay Road").position.z > -7.0) {
-                    car.getObjectByName("Gameplay Road").translateY(0.2);
-                    pointLight.translateY(0.1);
-                    if (car.getObjectByName("Wheel").rotation.z <= maxSteering) { // Not sure if 1.0 is better
-                        car.getObjectByName("Wheel").rotateZ(steering);
-                        car.getObjectByName("Body").rotateY(carTurning);
-                        car.getObjectByName("Head Cockpit").rotateY(headTurning);
-                        car.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                        car.getObjectByName("Left Anterior Tyre").rotateX(-tyreTurning);
-                        car.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                        car.getObjectByName("Right Anterior Tyre").rotateX(-tyreTurning); } }
-                else if (leftOrRight == 2 && car.getObjectByName("Gameplay Road").position.z < 7.0) {
-                        car.getObjectByName("Gameplay Road").translateY(-0.2);
+            
+            // Animates the player's car. Auxiliary function of animateGameplay()
+            function animateGameplayPlayer() {
+                var rotazione = models.getObjectByName("Left Anterior Tyre").rotation; // Gets the current rotation values of the anterior tyres
+                if (leftOrRight == 1 && models.getObjectByName("Gameplay Road").position.z > -7.0) { // The player wants to turn left and there's still place on the road
+                    models.getObjectByName("Gameplay Road").translateY(0.2); // Moves the road to right. The player is ALWAYS still.
+                    pointLight.translateY(0.1); // Slightly moves the light as well
+                    if (models.getObjectByName("Wheel").rotation.z <= maxSteering) { // Moves the wheel if it hasn't already reached the max steering
+                        models.getObjectByName("Wheel").rotateZ(steering); // Turns the wheel to left
+                        models.getObjectByName("Body").rotateY(carTurning); // Turns the body of the car to left
+                        models.getObjectByName("Head Cockpit").rotateY(headTurning); // Turns the pilot's head to left
+                        models.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0);  // We apply the x value of the current rotation value (else the animation fails) to the anterior left tyre
+                        models.getObjectByName("Left Anterior Tyre").rotateX(-tyreTurning); // Turns the left anterior tyre to the left
+                        models.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); // The same for the right anterior tyre
+                        models.getObjectByName("Right Anterior Tyre").rotateX(-tyreTurning); } }
+                else if (leftOrRight == 2 && models.getObjectByName("Gameplay Road").position.z < 7.0) { // The player wants to turn right and there's still place on the road
+                        models.getObjectByName("Gameplay Road").translateY(-0.2);
                         pointLight.translateY(-0.1);
-                        if (car.getObjectByName("Wheel").rotation.z >= -maxSteering) {
-                            car.getObjectByName("Wheel").rotateZ(-steering);
-                            car.getObjectByName("Body").rotateY(-carTurning);
-                            car.getObjectByName("Head Cockpit").rotateY(-headTurning);
-                            car.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                            car.getObjectByName("Left Anterior Tyre").rotateX(tyreTurning);   
-                            car.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                            car.getObjectByName("Right Anterior Tyre").rotateX(tyreTurning); } }
-                else if (leftOrRight == 0) { 
-                    if (car.getObjectByName("Wheel").rotation.z > 0.1) {
-                        car.getObjectByName("Wheel").rotateZ(-steering);
-                        car.getObjectByName("Body").rotateY(-carTurning);
-                        car.getObjectByName("Head Cockpit").rotateY(-headTurning);
-                        car.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                        car.getObjectByName("Left Anterior Tyre").rotateX(tyreTurning);
-                        car.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                        car.getObjectByName("Right Anterior Tyre").rotateX(tyreTurning); }
-                    else if (car.getObjectByName("Wheel").rotation.z < -0.1) {
-                        car.getObjectByName("Wheel").rotateZ(steering);
-                        car.getObjectByName("Body").rotateY(carTurning);
-                        car.getObjectByName("Head Cockpit").rotateY(headTurning);
-                        car.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                        car.getObjectByName("Left Anterior Tyre").rotateX(-tyreTurning);
-                        car.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
-                        car.getObjectByName("Right Anterior Tyre").rotateX(-tyreTurning); } }
+                        if (models.getObjectByName("Wheel").rotation.z >= -maxSteering) {
+                            models.getObjectByName("Wheel").rotateZ(-steering);
+                            models.getObjectByName("Body").rotateY(-carTurning);
+                            models.getObjectByName("Head Cockpit").rotateY(-headTurning);
+                            models.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
+                            models.getObjectByName("Left Anterior Tyre").rotateX(tyreTurning);   
+                            models.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
+                            models.getObjectByName("Right Anterior Tyre").rotateX(tyreTurning); } }
+                else if (leftOrRight == 0) { // The player stopped moving. The car returns to neutral position
+                    if (models.getObjectByName("Wheel").rotation.z > 0.1) { // The player was moving to the left
+                        models.getObjectByName("Wheel").rotateZ(-steering);
+                        models.getObjectByName("Body").rotateY(-carTurning);
+                        models.getObjectByName("Head Cockpit").rotateY(-headTurning);
+                        models.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
+                        models.getObjectByName("Left Anterior Tyre").rotateX(tyreTurning);
+                        models.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
+                        models.getObjectByName("Right Anterior Tyre").rotateX(tyreTurning); }
+                    else if (models.getObjectByName("Wheel").rotation.z < -0.1) { // The player was moving to the right
+                        models.getObjectByName("Wheel").rotateZ(steering);
+                        models.getObjectByName("Body").rotateY(carTurning);
+                        models.getObjectByName("Head Cockpit").rotateY(headTurning);
+                        models.getObjectByName("Left Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
+                        models.getObjectByName("Left Anterior Tyre").rotateX(-tyreTurning);
+                        models.getObjectByName("Right Anterior Tyre").rotation.set(rotazione.x, 0, 0); 
+                        models.getObjectByName("Right Anterior Tyre").rotateX(-tyreTurning); } }
                 
-                car.getObjectByName("Left Posterior Tyre").rotateZ(tyreSpeed);
-                car.getObjectByName("Right Posterior Tyre").rotateZ(-tyreSpeed);
-                car.getObjectByName("Left Anterior Tyre").rotateZ(tyreSpeed);
-                car.getObjectByName("Right Anterior Tyre").rotateZ(-tyreSpeed);  
-                
-                car.getObjectByName("Gameplay Road").traverse(function (child) {
-                    if (child.position.x > spawnPoint && child.name != "Left Side" && child.name != "Right Side" && child.name != "Opponent Back") {
-                        child.position.set(-spawnPoint, child.position.y, child.position.z); }
+                models.getObjectByName("Left Posterior Tyre").rotateZ(tyreSpeed); // Rotates the tyres on the z axis
+                models.getObjectByName("Right Posterior Tyre").rotateZ(-tyreSpeed);
+                models.getObjectByName("Left Anterior Tyre").rotateZ(tyreSpeed);
+                models.getObjectByName("Right Anterior Tyre").rotateZ(-tyreSpeed); }
+            
+            // Spawns a new opponent car. Auxiliary function of animateGameplayRoad()
+            function createRandomCar() {
+                var min = -0.385;
+                var max = 0.385;
+                var positionY = (Math.random() * (max - min) + min).toFixed(3);
+                var car = new THREE.Group();
+                car = models.getObjectByName("Opponent Body").clone(true);
+                models.getObjectByName("Gameplay Road").add(car);
+                car.position.set(-spawnPoint, positionY, car.position.z); }
+            
+            // Animates the obstacles on the road. Auxiliary function of animateGameplay()
+            function animateGameplayRoad() {
+                models.getObjectByName("Gameplay Road").traverse(function (child) {
+                    if (child.name == "Opponent Back") {
+                        collisionBoxOpponent = new THREE.Box3().setFromObject(child.getObjectByName("Collision Box Visible"));
+                        collisionBoxPlayer = new THREE.Box3().setFromObject(collisionBoxPlayerVisible);
+                        if (collisionBoxOpponent.intersectsBox(collisionBoxPlayer)) {
+                            gameOver(); } }
+                    
+                    if (child.position.x < 0.001 && child.position.x > -0.001 && child.name == "Opponent Body") {
+                        passes += 1;
+                        console.log(passes);
+                        document.getElementById("hud").innerHTML = "Passes: " + passes; }
                         
+                    if (child.position.x > spawnPoint/2 && (child.name == "Right Underpass" || child.name == "Left Underpass" || child.name == "Upper Underpass")) {
+                        child.position.set(-spawnPoint, child.position.y, child.position.z); }
+                    if (child.position.x > spawnPoint/2 && child.name == "Opponent Body") {
+                        createRandomCar();
+                        models.getObjectByName("Gameplay Road").remove(child); }
+                    
                     if (child.name == "Upper Underpass") {
                         child.translateX(speed); }
                     else if (child.name == "Left Underpass" || child.name == "Right Underpass") {            
                         child.translateX(-speed); }
                     else if (child.name == "Opponent Body") {
-                       child.translateX(speed/1.5); } } );
-             
-                console.log(car.getObjectByName("Opponent Back").position);
-                requestAnimationFrame(animateGameplay);
+                       child.translateX(speed/1.5); } } ); }
+            
+            // Animates the gameplay scene
+            function animateGameplay() {     
+                animateGameplayPlayer();
+                animateGameplayRoad();
+                gameplayAnimation = requestAnimationFrame(animateGameplay);
                 renderer.render(scene, camera); }
             
+            // The player has hit an opponent's car
+            function gameOver() {
+                cancelAnimationFrame(gameplayAnimation);
+                requestAnimationFrame(gameOver); 
+                renderer.render(scene, camera); }
+            
+            // Creates and animates the menu
             function init() { 
                 createMenu();
                 animateMenu(); }
-                
+            
+            // Starts the game
             setTimeout(function() { // The timeout gives time to load the car, else the variable "car" can't access the children objects
                 init() }, 20); // We create the menu and animate it
         </script>

@@ -293,6 +293,14 @@
 			"height": 1,
 			"widthSegments": 1,
 			"heightSegments": 1
+		},
+		{
+			"uuid": "29368567-EFD5-45F7-B3BD-9B4A3A43A720",
+			"type": "PlaneBufferGeometry",
+			"width": 1,
+			"height": 1,
+			"widthSegments": 1,
+			"heightSegments": 1
 		}],
 	"materials": [
 		{
@@ -682,6 +690,7 @@
 			"uuid": "3617FB4C-FF39-4AA4-B223-79718D575013",
 			"type": "LineDashedMaterial",
 			"color": 12632256,
+			"side": 2,
 			"depthFunc": 3,
 			"depthTest": true,
 			"depthWrite": true,
@@ -700,6 +709,18 @@
 			"dashSize": 3,
 			"gapSize": 1,
 			"scale": 1
+		},
+		{
+			"uuid": "4E266F4D-D50F-4F86-9B80-FEE584F21421",
+			"type": "MeshStandardMaterial",
+			"color": 65280,
+			"roughness": 0.5,
+			"metalness": 0.5,
+			"emissive": 0,
+			"side": 2,
+			"depthFunc": 3,
+			"depthTest": true,
+			"depthWrite": true
 		}],
 	"object": {
 		"uuid": "93EAFA87-4AA5-4903-8C92-ACE27D7B7E5E",
@@ -2078,6 +2099,24 @@
 											}]
 									}]
 							}]
+					},
+					{
+						"uuid": "00676244-FFDA-49E5-B3F9-AE38E7476E2E",
+						"type": "Mesh",
+						"name": "Right Grass",
+						"layers": 1,
+						"matrix": [0.996564,0,0,0,0,28.831389,-0.201284,0,0,0.005192,0.743646,0,-0.005518,14.949772,-0.155645,1],
+						"geometry": "29368567-EFD5-45F7-B3BD-9B4A3A43A720",
+						"material": "4E266F4D-D50F-4F86-9B80-FEE584F21421"
+					},
+					{
+						"uuid": "02CC9617-0C7B-4EBF-95B2-EFE2B928E901",
+						"type": "Mesh",
+						"name": "Left Grass",
+						"layers": 1,
+						"matrix": [0.990093,0,0,0,0,19.064949,-0.133101,0,0,0.005158,0.738817,0,-0.009332,-10.043965,0.000669,1],
+						"geometry": "29368567-EFD5-45F7-B3BD-9B4A3A43A720",
+						"material": "4E266F4D-D50F-4F86-9B80-FEE584F21421"
 					}]
 			},
 			{
