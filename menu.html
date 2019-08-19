@@ -25,18 +25,32 @@
             var loader;
             var models;
             
-            var title;
-            var description;
-            var easyButton;
-            var mediumButton;
-            var hardButton;
+            var title; // Container with the title screens and the "Play", "Options" and "About" buttons
             var playButton;
+            var optionsButton;
+            var aboutButton;
+            var options; // Container with the options
+            var easyButton;
+            var normalButton;
+            var hardButton;
+            var resolutionNativeButton;
+            var resolutionLowButton;
+            var shadowsOnButton;
+            var shadowsOffButton;
+            var ferrariButton;
+            var mercedesButton;
+            var redbullButton;
+            var optionsExitButton; // Button that closes the Option container
+            var about; // Container with the synopsis and commands
+            var aboutExitButton; // Button that closes the About container
+            var description;
             var hud;
             
-            var menuAnimation;
-            var gameplayAnimation;
-            var leftOrRight = 0; // 0: neutral, 1: left, 2: right
-            var cockpit = true; // true: cockpit view, false: third-person camera
+            var menuAnimation; // Timer for the menu animation
+            var gameplayAnimation; // Timer for the gameplay animation
+            var leftOrRight = 0; // The player turns their car to 0: neutral, 1: left, 2: right
+            var cockpit = true; // Type of camera view - true: cockpit view, false: third-person camera
+            var pause = false; // Indicates if the game is paused
             
             var maxSteering = 0.5; // How far the steering wheel can turn
             var steering = 0.1; // How much the steering wheel turns at each frame
@@ -52,12 +66,14 @@
             var collisionOpponent;
             var collisionOpponentVisible;
             
-            var difficulty = 1;
+            var difficulty = 1.0; // 0.5: Easy, 1: Normal, 1.5: Hard
             var maxOpponents = 8; // Max number of concurrent opponents on the track
             var opponents = 1; // The game starts with an opponent car already present on track
-            var carSpawner;
+            var carSpawner; // Timer for the initial spawn of the opponent cars
+            var timer = 0; // Timer used in carSpawner
             var passes = 0; // How many opponent cars the player has passed
             
+            var lowResolution = false; // Indicates if the player has choosen a low resolution
             var source = 'models.json'; // Where to find the models
             
             // Sets up the basics of the scene. Auxiliary function of createMenu()
@@ -72,6 +88,8 @@
             
                 renderer = new THREE.WebGLRenderer({antialias: true}); // We create a WebGLRenderer with antialiasing enabled
                 renderer.setSize(window.innerWidth, window.innerHeight); // The renderer has the same size of the browser
+                renderer.shadowMap.enabled = true; // The renderer is able to render shadows
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Filters shadows through an algorithm
                 document.body.appendChild(renderer.domElement); // We add the renderer (which is a canvas) to the body of the HTML file
             
                 ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // We create a white ambientLight 
@@ -83,7 +101,17 @@
             
                 pointLight2 = new THREE.PointLight(0xffffff, 1.0); // We create a second white pointLight
                 pointLight2.position.set(-2.0, 5.0, 4.0);
-                scene.add(pointLight2); }
+                scene.add(pointLight2); 
+                
+                window.addEventListener('resize', function(event) { // The browser window has changed size!
+                    if (lowResolution == false) { // Scale the size of the renderer according to the resolution choosen
+                        renderer.setSize(window.innerWidth, window.innerHeight); } 
+                    else {
+                        renderer.setSize(window.innerWidth/2, window.innerHeight/2);
+                        renderer.domElement.style.width = renderer.domElement.width * 2 + 'px';
+                        renderer.domElement.style.height = renderer.domElement.height * 2 + 'px'; }
+                    camera.aspect = window.innerWidth / window.innerHeight; // Scale the aspect ratio of the camera and update its projection matrix
+                    camera.updateProjectionMatrix(); } ); }
             
             // Loads the models in the .json file and add them to the scene. Auxiliary function of createMenu()
             function modelsLoader() {
@@ -96,10 +124,14 @@
                     object.traverse(function (child) { // We print on the console the names of the object's children
                         console.log(child.name); } );
                     object.rotateY(-0.3); // We slightly rotate the models for better presentation when the game first loads
+                    
+                    // Hide elements
                     object.getObjectByName("Torso Cockpit").visible = false; // We hide the children that must NOT show up in the menu
                     object.getObjectByName("Left Hand").visible = false;
                     object.getObjectByName("Right Hand").visible = false;
                     object.getObjectByName("Gameplay Road").visible = false;
+                    
+                    // Create collisions box
                     collisionBoxPlayerVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Front")); // We create an helperBox, which will help us visualize the collision box in the game itself for DEBUGGING purposes
                     collisionBoxPlayerVisible.scale.set(1.0, 0.8, 0.1); // We resize the boxHelper to better fit the front the car
                     collisionBoxPlayerVisible.updateMatrix(); // We update the matrix, so the changes take place
@@ -111,6 +143,11 @@
                     collisionBoxOpponentVisible.name = "Collision Box Visible"; // We add a name, so the box can be referenced later by the getObjectByName() function
                     collisionBoxOpponentVisible.visible = false;
                     object.getObjectByName("Opponent Back").add(collisionBoxOpponentVisible);
+                    
+                    // Adjust materials
+                    object.getObjectByName("Pit Road").material.roughness = 0.80;
+                    object.getObjectByName("Gameplay Road").material.roughness = 0.80;
+                    
                     scene.add(object);  }, // We add the models to the scene
                 
                                     function (xhr) { // We print this if the models are loaded correctly
@@ -119,102 +156,260 @@
                                     function ( error ) { // We print this if an error has occurred during the loading
                     console.log('An error happened'); } ); }
             
-            // Creates the logo, description and buttons in the menu. Auxiliary function of createMenu()
+            // Creates the menu screens. Auxiliary function of createMenu()
             function createMenuText() {
                 title = document.createElement('div'); // We create the title logo of the game
                 title.id = "title"; // How the logo should be rendered is detailed in the style.css file
-                title.innerHTML = "Formula Driver";
+                title.innerHTML = "Formula Driver"; // The text inside the div
                 document.body.appendChild(title);
                 
-                description = document.createElement('div'); // We create the paragraph with the game's description and options
-                description.id = "description";
-                description.innerHTML = "Synopsis: <br>";
-                description.innerHTML += "It was supposed to be an easy weekend, but after an initial crash at the first corner of the race, you find yourself in the last place.<br>";
-                description.innerHTML += "Not all hope is lost however.<br>";
-                description.innerHTML += "Your car is still the fastest of the grid and the layout of the track, an unnatural long straight, gives you ample possibilities to pass your rivals.<br>";
-                description.innerHTML += "See you on the track, driver!<br><br>";
-                description.innerHTML += "Controls: <br>"
-                description.innerHTML += "- 'a': Move your car to the left.<br>";
-                description.innerHTML += "- 'd': Move your car to the right.<br>";
-                description.innerHTML += "- 'v': Change between the two cameras: third-person or cockpit view.<br><br>";
-                description.innerHTML += "Set difficulty: <br>";
-                document.body.appendChild(description);
-                
-                easyButton = document.createElement('input'); // Creates the radio button for the easy difficulty
-                easyButton.setAttribute('type', 'radio');
-                easyButton.setAttribute('name', difficulty);
-                easyButton.id = "Easy";
-                description.appendChild(easyButton);
-                description.innerHTML += "Easy&nbsp";
-                
-                mediumButton = document.createElement('input'); // Creates the radio button for the medium difficulty
-                mediumButton.setAttribute('type', 'radio');
-                mediumButton.setAttribute('name', difficulty);
-                mediumButton.id = "Medium";
-                mediumButton.setAttribute('checked', "checked"); // The medium difficulty is selected by default (for some reason 'mediumBotton.checked = true' didn't work...)
-                description.appendChild(mediumButton);
-                description.innerHTML += "Medium&nbsp";
-                
-                hardButton = document.createElement('input'); // Creates the radio button for the hard difficulty
-                hardButton.setAttribute('type', 'radio');
-                hardButton.setAttribute('name', difficulty);
-                hardButton.id = "Hard";
-                description.appendChild(hardButton);
-                description.innerHTML += "Hard<br><br>";
-                
-                playButton = document.createElement('button'); // Creates the Play button
+                playButton = document.createElement('button'); // Creates the Play button inside the title element
                 playButton.id = "Play";
-                playButton.innerHTML = "> > > > > > > > > > > PLAY < < < < < < < < < <";
-                description.appendChild(playButton);
+                playButton.innerHTML = "PLAY";
+                playButton.style.background = "yellow"; // The button is yellow as well
+                title.appendChild(playButton);
                 
-                document.getElementById("Easy").onchange = function() { // For some reason the radio buttons didn't work correctly on their own, so I had to write all the conditions manually
-                    document.getElementById("Medium").setAttribute('checked', false);
-                    document.getElementById("Hard").setAttribute('checked', false); };
+                optionsButton = document.createElement('button'); // Creates the Options button inside the title element
+                optionsButton.id = "Options";
+                optionsButton.innerHTML = "OPTIONS";
+                optionsButton.style.background = "yellow";
+                title.appendChild(optionsButton);
+
+                aboutButton = document.createElement('button'); // Creates the About button inside the title element
+                aboutButton.id = "About";
+                aboutButton.innerHTML = "ABOUT";
+                aboutButton.style.background = "yellow";
+                title.appendChild(aboutButton);
                 
-                document.getElementById("Medium").onchange = function() { 
-                    this.setAttribute('checked', "checked");
-                    document.getElementById("Easy").setAttribute('checked', false); 
-                    document.getElementById("Hard").setAttribute('checked', false); };
+                easyButton = document.createElement('button'); // Creates all the buttons inside the Options screen
+                easyButton.id = "Easy";
+                easyButton.innerHTML = "EASY";
+                normalButton = document.createElement('button');
+                normalButton.id = "Normal";
+                normalButton.innerHTML = "NORMAL";
+                normalButton.disabled = true;
+                hardButton = document.createElement('button');
+                hardButton.id = "Hard";
+                hardButton.innerHTML = "HARD";
+                resolutionLowButton = document.createElement('button');
+                resolutionLowButton.id = "Low";
+                resolutionLowButton.innerHTML = "LOW";
+                resolutionNativeButton = document.createElement('button');
+                resolutionNativeButton.id = "Native";
+                resolutionNativeButton.innerHTML = "NATIVE";
+                resolutionNativeButton.disabled = true;
+                shadowsOffButton = document.createElement('button');
+                shadowsOffButton.id = "shadowsOff";
+                shadowsOffButton.innerHTML = "OFF";
+                shadowsOffButton.disabled = true;
+                shadowsOnButton = document.createElement('button');
+                shadowsOnButton.id = "shadowsOn";
+                shadowsOnButton.innerHTML = "ON";
+                ferrariButton = document.createElement('button');
+                ferrariButton.id = "Ferrari";
+                ferrariButton.innerHTML = "FERRARI";
+                ferrariButton.disabled = true;
+                mercedesButton = document.createElement('button');
+                mercedesButton.id = "Mercedes";
+                mercedesButton.innerHTML = "MERCEDES";
+                redbullButton = document.createElement('button');
+                redbullButton.id = "Redbull";
+                redbullButton.innerHTML = "REDBULL";
+                
+                options = document.createElement('div'); // Creates a div where all the options are displayed
+                options.id = "description";
+                options.style.textAlign = "center";
+                options.innerHTML = "Difficulty: <br>";
+                options.appendChild(easyButton); 
+                options.appendChild(normalButton);
+                options.appendChild(hardButton);
+                options.innerHTML += "<br><br>Resolution: <br>";
+                options.appendChild(resolutionLowButton);
+                options.appendChild(resolutionNativeButton);
+                options.innerHTML += "<br>(If the game runs poorly, choose 'LOW')";
+                options.innerHTML += "<br><br>Shadows: <br>";
+                options.appendChild(shadowsOffButton);
+                options.appendChild(shadowsOnButton);
+                options.innerHTML += "<br>('ON' option may impact performance)";
+                options.innerHTML += "<br><br>Team: <br>";
+                options.appendChild(ferrariButton);
+                options.appendChild(mercedesButton);
+                options.appendChild(redbullButton);
+                options.innerHTML += "<br><br>";
+                document.body.appendChild(options);
+                options.style.visibility = "hidden";
+                
+                optionsExitButton = document.createElement('button'); // Button that lets you close the Options screen
+                optionsExitButton.id = "optionsExit";
+                optionsExitButton.innerHTML = "CLOSE";
+                options.appendChild(optionsExitButton);
+                
+                about = document.createElement('div'); // Creates a div where the synopsis and controlls are displayed
+                about.id = "description";
+                about.innerHTML = "Synopsis: <br>";
+                about.innerHTML += "It was supposed to be an easy weekend, but after an initial crash at the first corner of the race, you find yourself in the last place.<br>";
+                about.innerHTML += "Not all hope is lost however.<br>";
+                about.innerHTML += "Your car is still the fastest of the grid and the layout of the track, an unnatural long straight, gives you ample possibilities to pass your rivals.<br>";
+                about.innerHTML += "See you on the track, driver!<br><br>";
+                about.innerHTML += "Controls: <br>"
+                about.innerHTML += "- 'a': Move your car to the left.<br>";
+                about.innerHTML += "- 'd': Move your car to the right.<br>";
+                about.innerHTML += "- 'v': Change between the two cameras: third-person or cockpit view.<br>";
+                about.innerHTML += "- 'p': Pause or resume the game.<br><br>";
+                document.body.appendChild(about);
+                about.style.visibility = "hidden";
+                
+                aboutExitButton = document.createElement('button'); // Button that lets you close the About screen
+                aboutExitButton.id = "aboutExit";
+                aboutExitButton.innerHTML = "CLOSE";
+                about.appendChild(aboutExitButton); }
+            
+            // Assign the events to each button in the menu. Auxiliary function of createMenu()
+            function assignButtons() {
+                // Open Options scren
+                optionsButton.onclick = function() {
+                    this.disabled = true;
+                    aboutButton.disabled = false;
+                    options.style.visibility = "visible";
+                    about.style.visibility = "hidden"; }
+                
+                // Option events: difficulty
+                document.getElementById("Easy").onclick = function() { // For some reason easyButton.onclick doesn't work: the same for the following buttons
+                    this.disabled = true;
+                    document.getElementById("Normal").disabled = false;
+                    document.getElementById("Hard").disabled = false;
+                    difficulty = 0.5; }
                     
-                document.getElementById("Hard").onchange = function() { 
-                    this.setAttribute('checked', "checked");
-                    document.getElementById("Easy").setAttribute('checked', false);
-                    document.getElementById("Medium").setAttribute('checked', false); };
+                document.getElementById("Normal").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("Easy").disabled = false;
+                    document.getElementById("Hard").disabled = false;
+                    difficulty = 1.0; }
+                    
+                document.getElementById("Hard").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("Easy").disabled = false;
+                    document.getElementById("Normal").disabled = false;
+                    difficulty = 1.5; }
+                 
+                // Option events: resolution
+                document.getElementById("Low").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("Native").disabled = false; 
+                    lowResolution = true;
+                    renderer.setSize(window.innerWidth/2, window.innerHeight/2);
+                    renderer.domElement.style.width = renderer.domElement.width * 2 + 'px';
+                    renderer.domElement.style.height = renderer.domElement.height * 2 + 'px'; }
                 
-                playButton.onclick = function() { // The Play button is pressed
-                    /* console.log(document.getElementById("Easy").getAttribute('checked') == "checked");
-                    console.log(document.getElementById("Medium").getAttribute('checked') == "checked");
-                    console.log(document.getElementById("Hard").getAttribute('checked') == "checked");
-                    if (document.getElementById("Easy").getAttribute('checked') == "checked") {
-                        console.log("Ho premuto Easy"); }
-                    else if (document.getElementById("Medium").getAttribute('checked') == "checked") {
-                        console.log("Ho premuto Medium"); }
-                    else {
-                        console.log("Ho premuto Hard"); } */
+                document.getElementById("Native").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("Low").disabled = false;
+                    lowResolution = false;
+                    renderer.setSize(window.innerWidth, window.innerHeight); }
+                
+                // Option events: shadows
+                document.getElementById("shadowsOff").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("shadowsOn").disabled = false;
+                    pointLight.castShadow = false;
+                    models.getObjectByName("Body").traverse(function (child) { 
+                        child.receiveShadow = false;
+                        child.castShadow = false; } );
+                    models.getObjectByName("Human").traverse(function (child) { 
+                        child.receiveShadoe = false;
+                        child.castShadow = false; } );
+                    models.getObjectByName("Pit Road").receiveShadow = false;
+                    models.getObjectByName("Gameplay Road").receiveShadow = false; }
+                    
+                document.getElementById("shadowsOn").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("shadowsOff").disabled = false; 
+                    pointLight.castShadow = true;
+                    pointLight.shadow.mapSize.width = 1024;
+                    pointLight.shadow.mapSize.height = 1024; 
+                    models.getObjectByName("Body").traverse(function (child) { 
+                        child.receiveShadow = true;
+                        child.castShadow = true; } );
+                    models.getObjectByName("Human").traverse(function (child) { 
+                        child.receiveShadow = true;
+                        child.castShadow = true;                        } );
+                    models.getObjectByName("Pit Road").receiveShadow = true;
+                    models.getObjectByName("Gameplay Road").receiveShadow = true; }
+                
+                // Option events: teams
+                document.getElementById("Ferrari").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("Mercedes").disabled = false;
+                    document.getElementById("Redbull").disabled = false;
+                    models.getObjectByName("Front").material.color = new THREE.Color(255, 0, 0);
+                    models.getObjectByName("Front").material.emissive = new THREE.Color(255, 0, 0); 
+                    models.getObjectByName("Body").material.color = new THREE.Color(255, 0, 0);
+                    models.getObjectByName("Body").material.emissive = new THREE.Color(255, 0, 0);  }
+                    
+                document.getElementById("Mercedes").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("Ferrari").disabled = false;
+                    document.getElementById("Redbull").disabled = false;
+                    models.getObjectByName("Front").material.color = new THREE.Color(0, 128, 128);
+                    models.getObjectByName("Front").material.emissive = new THREE.Color(0, 0, 0); 
+                    models.getObjectByName("Body").material.color = new THREE.Color(0, 128, 128);
+                    models.getObjectByName("Body").material.emissive = new THREE.Color(0, 0, 0); }
+                
+                document.getElementById("Redbull").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("Ferrari").disabled = false;
+                    document.getElementById("Mercedes").disabled = false; 
+                    models.getObjectByName("Front").material.color = new THREE.Color(0, 0, 160);
+                    models.getObjectByName("Front").material.emissive = new THREE.Color(0, 0, 160); 
+                    models.getObjectByName("Body").material.color = new THREE.Color(0, 0, 160);
+                    models.getObjectByName("Body").material.emissive = new THREE.Color(0, 0, 160); }
+                 
+                // Closes Option screen
+                optionsExitButton.onclick = function() {
+                    optionsButton.disabled = false;
+                    options.style.visibility = "hidden"; }
+                
+                // Open the About screen
+                aboutButton.onclick = function() { 
+                    this.disabled = true;
+                    optionsButton.disabled = false;
+                    about.style.visibility = "visible";
+                    options.style.visibility = "hidden"; }
+                
+                // Closes the About screen
+                aboutExitButton.onclick = function() {
+                    aboutButton.disabled = false;
+                    about.style.visibility = "hidden"; }
+                
+                // Begings the game
+                playButton.onclick = function() {
                     createGameplay(); }; }
-                
+                    
             // Creates the menu of the game. Auxiliary function of init()
             function createMenu() {
                 setScene();
                 modelsLoader();
-                createMenuText(); }
+                createMenuText();
+                assignButtons(); }
              
             // Animates the menu. Auxiliary function of init()
             function animateMenu() {
-                models.rotateY(0.002); // The models rotate slowly on the Y axis
+                scene.rotateY(0.002); // The entire scene rotate slowly on the Y axis
                 menuAnimation = requestAnimationFrame(animateMenu); // The canvas is updated at each frame
                 renderer.render(scene, camera); } // We use the renderer to render the scene and the camera
             
             // Spawn a new opponent car for the first time when the game begins. Auxiliary function of createGameplay()
             function createInitialCars() {
-                    opponents += 1;
-                    if (opponents > maxOpponents) {
-                        clearInterval(carSpawner); }
-                    else {
-                        createRandomCar(); } }
+                opponents += 1; // ... and update the number of opponent cars!
+                if (opponents > maxOpponents) { // Max number of concurrent opponents on screen reached. No more car are created
+                    clearInterval(carSpawner); }
+                else {
+                    createRandomCar(); } }
             
-            // Creates the Gameplay scene coming from the menu.
+            // Creates the gameplay scene coming from the menu
             function createGameplay() {
+                document.title = "Formula Driver - In Game"; // Change the title of the web page
+                
                 cancelAnimationFrame(menuAnimation); // Stops the spinning animation of the menu
                 
                 models.getObjectByName("Human").visible = false; // Renders invisible the parts that are not needed in gameplay
@@ -224,16 +419,18 @@
                 models.getObjectByName("Left Hand").visible = true;
                 models.getObjectByName("Right Hand").visible = true;
                 
-                document.body.removeChild(title); // Remove the logo
-                document.body.removeChild(description); // Remove the description with the buttons
+                document.body.removeChild(title); // Remove all text on the menu screen
+                document.body.removeChild(options);
+                document.body.removeChild(about);
                 
-                models.rotation.set(0, 3.6, 0); // Rotates the scene to better fit the gameplay
+                scene.rotation.set(0, 0, 0); // Rotates the scene and the models to better fit the gameplay
+                models.rotation.set(0, 3.6, 0);
                 scene.background = new THREE.Color(0xADD8E6); // Light blue background
                 camera.position.set(0.6, 2.1, -0.3); // We set the cockpit cam
                 camera.fov = 70; // We change the FOV
                 camera.updateProjectionMatrix(); // We update the camera projection matrix so that we can apply the above changes
                
-                carSpawner = setInterval(createInitialCars, 800); // We spawn a new inital opponent car every second
+                carSpawner = setInterval(createInitialCars, 800); // We spawn a new initial opponent car every few moments
                 
                 hud = document.createElement('div'); // We create the paragraph with the game's description and options
                 hud.id = "hud";
@@ -251,8 +448,16 @@
                             cockpit = false; }
                         else {
                             camera.position.set(0.6, 2.1, -0.3);
-                            cockpit = true; } } };
-                        
+                            cockpit = true; } }
+                    else if (event.keyCode == 80 && pause == false) { // The player presses 'p' while playing: the game is paused
+                        pause = true;
+                        document.title = "Formula Driver - Paused";
+                        cancelAnimationFrame(gameplayAnimation); }
+                    else if (event.keyCode == 80 && pause == true) { // The player presses 'p' when the pause is on: the game is resumed
+                        pause = false;
+                        document.title = "Formula Driver - In Game";
+                        gameplayAnimation = requestAnimationFrame(animateGameplay); } };
+                            
                 document.onkeyup = function() { 
                     if (event.keyCode == 65 || event.keyCode == 68) { // The player stops turning
                         leftOrRight = 0; } };
@@ -328,7 +533,6 @@
                     
                     if (child.position.x < 0.001 && child.position.x > -0.001 && child.name == "Opponent Body") {
                         passes += 1;
-                        console.log(passes);
                         document.getElementById("hud").innerHTML = "Passes: " + passes; }
                         
                     if (child.position.x > spawnPoint/2 && (child.name == "Right Underpass" || child.name == "Left Underpass" || child.name == "Upper Underpass")) {
@@ -338,14 +542,14 @@
                         models.getObjectByName("Gameplay Road").remove(child); }
                     
                     if (child.name == "Upper Underpass") {
-                        child.translateX(speed); }
+                        child.translateX(speed*difficulty); }
                     else if (child.name == "Left Underpass" || child.name == "Right Underpass") {            
-                        child.translateX(-speed); }
+                        child.translateX(-speed*difficulty); }
                     else if (child.name == "Opponent Body") {
-                       child.translateX(speed/1.5); } } ); }
+                       child.translateX((speed/1.5)*difficulty); } } ); }
             
             // Animates the gameplay scene
-            function animateGameplay() {     
+            function animateGameplay() {    
                 animateGameplayPlayer();
                 animateGameplayRoad();
                 gameplayAnimation = requestAnimationFrame(animateGameplay);
@@ -354,6 +558,7 @@
             // The player has hit an opponent's car
             function gameOver() {
                 cancelAnimationFrame(gameplayAnimation);
+                clearInterval(carSpawner);
                 requestAnimationFrame(gameOver); 
                 renderer.render(scene, camera); }
             
