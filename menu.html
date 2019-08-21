@@ -66,16 +66,20 @@
             var collisionOpponent;
             var collisionOpponentVisible;
             
-            var difficulty = 1.0; // 0.5: Easy, 1: Normal, 1.5: Hard
+            var choosenDifficulty = 1.0; // 0.5: Easy, 1: Normal, 1.5: Hard. Choosen through the main menu
+            var difficulty = 1.0; // Actual difficulty during game. It increases every 50 passes.
+            var team = 0; //0: Ferrari, 1: Mercedes, 2: RedBull
             var maxOpponents = 8; // Max number of concurrent opponents on the track
             var opponents = 1; // The game starts with an opponent car already present on track
             var carSpawner; // Timer for the initial spawn of the opponent cars
             var timer = 0; // Timer used in carSpawner
             var passes = 0; // How many opponent cars the player has passed
+            var crash = false; // Indicates if the player has crashed
             
             var textureLogoTeam;
             var lowResolution = false; // Indicates if the player has choosen a low resolution
-            var source = 'modelM.json'; // Where to find the models
+            var shadows = false; // Indicates if shadows are enabled
+            var source = 'modelL.json'; // Where to find the models
             
             // Sets up the basics of the scene. Auxiliary function of createMenu()
             function setScene() {
@@ -86,9 +90,9 @@
                 camera.position.set(-8,5,4); // We move the camera from the origin position
                 camera.up = new THREE.Vector3(0,1,0); // The orientation of the camera
                 camera.lookAt(new THREE.Vector3(0,0,0)); // We tell the camera to tell at the origin of the scene
-            
+              
                 renderer = new THREE.WebGLRenderer({antialias: true}); // We create a WebGLRenderer with antialiasing enabled
-                renderer.setSize(window.innerWidth, window.innerHeight); // The renderer has the same size of the browser
+                setResolutionRenderer();
                 renderer.shadowMap.enabled = true; // The renderer is able to render shadows
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Filters shadows through an algorithm
                 document.body.appendChild(renderer.domElement); // We add the renderer (which is a canvas) to the body of the HTML file
@@ -105,12 +109,7 @@
                 scene.add(pointLight2); 
                 
                 window.addEventListener('resize', function(event) { // The browser window has changed size!
-                    if (lowResolution == false) { // Scale the size of the renderer according to the resolution choosen
-                        renderer.setSize(window.innerWidth, window.innerHeight); } 
-                    else {
-                        renderer.setSize(window.innerWidth/2, window.innerHeight/2);
-                        renderer.domElement.style.width = renderer.domElement.width * 2 + 'px';
-                        renderer.domElement.style.height = renderer.domElement.height * 2 + 'px'; }
+                    setResolutionRenderer();
                     camera.aspect = window.innerWidth / window.innerHeight; // Scale the aspect ratio of the camera and update its projection matrix
                     camera.updateProjectionMatrix(); } ); }
             
@@ -139,7 +138,7 @@
                     collisionBoxPlayerVisible.visible = false;
                     object.getObjectByName("Front").add(collisionBoxPlayerVisible); // Add the helperBox to the scene so we can see it
                     collisionBoxOpponentVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Opponent Back")); // We now do the same for the opponent car's back
-                    collisionBoxOpponentVisible.scale.set(1.4, 0.8, 0.1);
+                    collisionBoxOpponentVisible.scale.set(0.7, 0.8, 0.1);
                     collisionBoxOpponentVisible.updateMatrix();
                     collisionBoxOpponentVisible.name = "Collision Box Visible"; // We add a name, so the box can be referenced later by the getObjectByName() function
                     collisionBoxOpponentVisible.visible = false;
@@ -156,17 +155,14 @@
                     texturePirelli.anisotropy = renderer.getMaxAnisotropy();
                     texturePirelli.rotation = 1.57;
                     object.getObjectByName("Upper Underpass").material.map = texturePirelli;
-                    
-                    textureLogoTeam = new THREE.TextureLoader().load("textures/Ferrari.png");
-                    textureLogoTeam.wrapS = THREE.RepeatWrapping;
-                    textureLogoTeam.wrapT = THREE.RepeatWrapping;
-                    textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
-                    object.getObjectByName("Front Logo").material.map = textureLogoTeam;
+                    setTeamColors();
                     
                     // Create texture for the screen on the wheel
                     wheelScreenText();
                     
-                    scene.add(object);  }, // We add the models to the scene
+                    scene.add(object); // We add the models to the scene
+                    if (shadows == true) {
+                        setShadows(); } }, 
                 
                                     function (xhr) { // We print this if the models are loaded correctly
                     console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
@@ -202,37 +198,56 @@
                 easyButton = document.createElement('button'); // Creates all the buttons inside the Options screen
                 easyButton.id = "Easy";
                 easyButton.innerHTML = "EASY";
+                if (choosenDifficulty == 0.5) {
+                    easyButton.disabled = true; }
                 normalButton = document.createElement('button');
                 normalButton.id = "Normal";
                 normalButton.innerHTML = "NORMAL";
-                normalButton.disabled = true;
+                if (choosenDifficulty == 1.0) {
+                    normalButton.disabled = true; }
                 hardButton = document.createElement('button');
                 hardButton.id = "Hard";
                 hardButton.innerHTML = "HARD";
+                if (choosenDifficulty == 1.5) {
+                    hardButton.disabled = true; }
+                
                 resolutionLowButton = document.createElement('button');
                 resolutionLowButton.id = "Low";
                 resolutionLowButton.innerHTML = "LOW";
+                if (lowResolution == true) {
+                    resolutionLowButton.disabled = true; }
                 resolutionNativeButton = document.createElement('button');
                 resolutionNativeButton.id = "Native";
                 resolutionNativeButton.innerHTML = "NATIVE";
-                resolutionNativeButton.disabled = true;
+                if (lowResolution == false) {
+                    resolutionNativeButton.disabled = true; }
+                
                 shadowsOffButton = document.createElement('button');
                 shadowsOffButton.id = "shadowsOff";
                 shadowsOffButton.innerHTML = "OFF";
-                shadowsOffButton.disabled = true;
+                if (shadows == false) {
+                    shadowsOffButton.disabled = true; }
                 shadowsOnButton = document.createElement('button');
                 shadowsOnButton.id = "shadowsOn";
                 shadowsOnButton.innerHTML = "ON";
+                if (shadows == true) {
+                    shadowsOnButton.disabled = true; }
+                
                 ferrariButton = document.createElement('button');
                 ferrariButton.id = "Ferrari";
                 ferrariButton.innerHTML = "FERRARI";
-                ferrariButton.disabled = true;
+                if (team == 0) {
+                    ferrariButton.disabled = true; }
                 mercedesButton = document.createElement('button');
                 mercedesButton.id = "Mercedes";
                 mercedesButton.innerHTML = "MERCEDES";
+                if (team == 1) {
+                    mercedesButton.disabled = true; }
                 redbullButton = document.createElement('button');
                 redbullButton.id = "Redbull";
                 redbullButton.innerHTML = "REDBULL";
+                if (team == 2) {
+                    redbullButton.disabled = true; }
                 
                 options = document.createElement('div'); // Creates a div where all the options are displayed
                 options.id = "description";
@@ -306,109 +321,67 @@
                     this.disabled = true;
                     document.getElementById("Normal").disabled = false;
                     document.getElementById("Hard").disabled = false;
-                    difficulty = 0.5; }
+                    choosenDifficulty = 0.5; }
                     
                 document.getElementById("Normal").onclick = function() {
                     this.disabled = true;
                     document.getElementById("Easy").disabled = false;
                     document.getElementById("Hard").disabled = false;
-                    difficulty = 1.0; }
+                    choosenDifficulty = 1.0; }
                     
                 document.getElementById("Hard").onclick = function() {
                     this.disabled = true;
                     document.getElementById("Easy").disabled = false;
                     document.getElementById("Normal").disabled = false;
-                    difficulty = 1.5; }
+                    choosenDifficulty = 1.5; }
                  
                 // Option events: resolution
                 document.getElementById("Low").onclick = function() {
                     this.disabled = true;
                     document.getElementById("Native").disabled = false; 
                     lowResolution = true;
-                    renderer.setSize(window.innerWidth/2, window.innerHeight/2); // The renderer is half of its original size
-                    renderer.domElement.style.width = renderer.domElement.width * 2 + 'px'; // And then we double the canvas, while the renderer keeps its size
-                    renderer.domElement.style.height = renderer.domElement.height * 2 + 'px'; }
+                    setResolutionRenderer(); }
                 
                 document.getElementById("Native").onclick = function() {
                     this.disabled = true;
                     document.getElementById("Low").disabled = false;
                     lowResolution = false;
-                    renderer.setSize(window.innerWidth, window.innerHeight); }
+                    setResolutionRenderer(); }
                 
                 // Option events: shadows
                 document.getElementById("shadowsOff").onclick = function() {
                     this.disabled = true;
                     document.getElementById("shadowsOn").disabled = false;
-                    pointLight.castShadow = false;
-                    models.getObjectByName("Body").traverse(function (child) { 
-                        child.receiveShadow = false;
-                        child.castShadow = false; } );
-                    models.getObjectByName("Human").traverse(function (child) { 
-                        child.receiveShadoe = false;
-                        child.castShadow = false; } );
-                    models.getObjectByName("Upper Underpass").castShadow = false;
-                    models.getObjectByName("Pit Road").receiveShadow = false;
-                    models.getObjectByName("Gameplay Road").receiveShadow = false; }
+                    shadows = false;
+                    setShadows(); }
                     
                 document.getElementById("shadowsOn").onclick = function() {
                     this.disabled = true;
                     document.getElementById("shadowsOff").disabled = false; 
-                    pointLight.castShadow = true; // The light can cast shadows
-                    pointLight.shadow.mapSize.width = 512; // Size of the shadows: the bigger number, the higher quality, but worse performance
-                    pointLight.shadow.mapSize.height = 512; 
-                    models.getObjectByName("Body").traverse(function (child) { // We enable every object on the scene to receive and cast shadow
-                        child.receiveShadow = true;
-                        child.castShadow = true; } );
-                    models.getObjectByName("Human").traverse(function (child) { 
-                        child.receiveShadow = true;
-                        child.castShadow = true; } );
-                    models.getObjectByName("Upper Underpass").castShadow = true;
-                    models.getObjectByName("Front Logo").castShadow = false; // The plane containing the logo can't cast shadow
-                    models.getObjectByName("Pit Road").receiveShadow = true;
-                    models.getObjectByName("Gameplay Road").receiveShadow = true; }
+                    shadows = true;
+                    setShadows(); }
                 
                 // Option events: teams
                 document.getElementById("Ferrari").onclick = function() {
                     this.disabled = true;
                     document.getElementById("Mercedes").disabled = false;
                     document.getElementById("Redbull").disabled = false;
-                    models.getObjectByName("Front").material.color = new THREE.Color(255, 0, 0); // We change the colors on the car
-                    models.getObjectByName("Front").material.emissive = new THREE.Color(255, 0, 0); 
-                    models.getObjectByName("Body").material.color = new THREE.Color(255, 0, 0);
-                    models.getObjectByName("Body").material.emissive = new THREE.Color(255, 0, 0);
-                    textureLogoTeam = new THREE.TextureLoader().load("textures/Ferrari.png"); // We load the correct logo
-                    textureLogoTeam.wrapS = THREE.RepeatWrapping;
-                    textureLogoTeam.wrapT = THREE.RepeatWrapping;
-                    textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
-                    models.getObjectByName("Front Logo").material.map = textureLogoTeam; }
+                    team = 0;
+                    setTeamColors(); }
                     
                 document.getElementById("Mercedes").onclick = function() {
                     this.disabled = true;
                     document.getElementById("Ferrari").disabled = false;
                     document.getElementById("Redbull").disabled = false;
-                    models.getObjectByName("Front").material.color = new THREE.Color(0, 0, 0);
-                    models.getObjectByName("Front").material.emissive = new THREE.Color(0, 128, 128); 
-                    models.getObjectByName("Body").material.color = new THREE.Color(0, 0, 0);
-                    models.getObjectByName("Body").material.emissive = new THREE.Color(0, 128, 128);
-                    textureLogoTeam = new THREE.TextureLoader().load("textures/Mercedes.png"); // We load the correct logo
-                    textureLogoTeam.wrapS = THREE.RepeatWrapping;
-                    textureLogoTeam.wrapT = THREE.RepeatWrapping;
-                    textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
-                    models.getObjectByName("Front Logo").material.map = textureLogoTeam;}
+                    team = 1;
+                    setTeamColors(); }
                 
                 document.getElementById("Redbull").onclick = function() {
                     this.disabled = true;
                     document.getElementById("Ferrari").disabled = false;
                     document.getElementById("Mercedes").disabled = false; 
-                    models.getObjectByName("Front").material.color = new THREE.Color(0, 0, 160);
-                    models.getObjectByName("Front").material.emissive = new THREE.Color(0, 0, 160); 
-                    models.getObjectByName("Body").material.color = new THREE.Color(0, 0, 160);
-                    models.getObjectByName("Body").material.emissive = new THREE.Color(0, 0, 160);
-                    textureLogoTeam = new THREE.TextureLoader().load("textures/Redbull.png");
-                    textureLogoTeam.wrapS = THREE.RepeatWrapping;
-                    textureLogoTeam.wrapT = THREE.RepeatWrapping;
-                    textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
-                    models.getObjectByName("Front Logo").material.map = textureLogoTeam; }
+                    team = 2;
+                    setTeamColors(); }
                  
                 // Closes Option screen
                 optionsExitButton.onclick = function() {
@@ -476,6 +449,7 @@
                 camera.fov = 70; // We change the FOV
                 camera.updateProjectionMatrix(); // We update the camera projection matrix so that we can apply the above changes
                
+                difficulty = choosenDifficulty;
                 carSpawner = setInterval(createInitialCars, 800); // We spawn a new initial opponent car every few moments
                 
                 hud = document.createElement('div');
@@ -500,7 +474,7 @@
                             camera.position.set(0.6, 2.1, -0.3);
                             document.getElementById("hud").style.visibility = "hidden";
                             cockpit = true; } }
-                    else if (event.keyCode == 80 && pause == false) { // The player presses 'p' while playing: the game is paused
+                    else if (event.keyCode == 80 && pause == false && crash == false) { // The player presses 'p' while playing: the game is paused
                         pause = true;
                         document.title = "Formula Driver - Paused";
                         cancelAnimationFrame(gameplayAnimation); }
@@ -582,7 +556,7 @@
                         collisionBoxOpponent = new THREE.Box3().setFromObject(child.getObjectByName("Collision Box Visible")); // Creation of collision boxes from boxHelpers
                         collisionBoxPlayer = new THREE.Box3().setFromObject(collisionBoxPlayerVisible);
                         if (collisionBoxOpponent.intersectsBox(collisionBoxPlayer)) { // Check intersection for collisions
-                            gameOver(); } }
+                            crash = true; } }
                     
                     // Pass check
                     if (child.position.x > 0.01 && child.visible == true && child.name == "Opponent Body") { // Check if the opponent is behind you
@@ -606,23 +580,46 @@
                         child.translateX(speed*difficulty); }
                     else if (child.name == "Left Underpass" || child.name == "Right Underpass") {            
                         child.translateX(-speed*difficulty); }
-                    else if (child.name == "Opponent Body") {
+                    else if (child.name == "Opponent Body" && crash == false) {
                        child.translateX((speed/1.5)*difficulty); } } ); }
             
             // Animates the gameplay scene
             function animateGameplay() {    
                 animateGameplayPlayer();
                 animateGameplayRoad();
-                gameplayAnimation = requestAnimationFrame(animateGameplay);
-                renderer.render(scene, camera); }
+                if (crash == false) {
+                    gameplayAnimation = requestAnimationFrame(animateGameplay);
+                    renderer.render(scene, camera); }
+                else {
+                    clearInterval(carSpawner);
+                    gameOver(); } }
             
             // The player has hit an opponent's car
             function gameOver() {
-                cancelAnimationFrame(gameplayAnimation);
-                clearInterval(carSpawner);
-                requestAnimationFrame(gameOver); 
+                var gameOver = document.createElement('div');
+                gameOver.id = "gameover";
+                gameOver.innerHTML = "GAME OVER!";
+                gameOver.innerHTML += "<br>Passes: " + passes;
+                gameOver.innerHTML += "<br>Speed: " + difficulty.toFixed(1) + "<br>";
+                document.body.appendChild(gameOver); 
+                
+                var continueButton = document.createElement('button');
+                continueButton.id = "Menu";
+                continueButton.innerHTML = "Back To Menu";
+                gameOver.appendChild(continueButton);
+                    
+                document.getElementById("Menu").onclick = function() {
+                    document.body.removeChild(gameOver);
+                    document.body.removeChild(hud);
+                    document.body.removeChild(renderer.domElement);
+                    difficulty = 1.0;
+                    passes = 0;
+                    opponents = 1;
+                    crash = false;
+                    init(); };
+                
                 renderer.render(scene, camera); }
-            
+                      
             // Updates the text on the screen of the wheel. 
             function wheelScreenText() {
                 var canvas = document.createElement('canvas'); // Creates a canvas where to write the text on the wheel
@@ -639,7 +636,78 @@
                 textureScreen.anisotropy = renderer.getMaxAnisotropy();
                 textureScreen.needsUpdate = true; // Without this, it doesn't work
                 models.getObjectByName("Screen Text").material.map = textureScreen; }
-                
+            
+            // Set the resolution of the renderer according to the option choosen
+            function setResolutionRenderer() {
+                if (lowResolution == false) { // The renderer has the same size of the browser
+                    renderer.setSize(window.innerWidth, window.innerHeight); } 
+                else { // The renderer has the same size of the browser but half of its internal resolution
+                    renderer.setSize(window.innerWidth/2, window.innerHeight/2); // The renderer is half of its original size
+                    renderer.domElement.style.width = renderer.domElement.width * 2 + 'px'; // And then we double the canvas, while the renderer keeps its size
+                    renderer.domElement.style.height = renderer.domElement.height * 2 + 'px'; } }
+            
+            // Colors the car with according to the team choosen
+            function setTeamColors() {
+                if (team == 0) { // Ferrari
+                    models.getObjectByName("Front").material.color = new THREE.Color(255, 0, 0); // We change the colors on the car
+                    models.getObjectByName("Front").material.emissive = new THREE.Color(255, 0, 0); 
+                    models.getObjectByName("Body").material.color = new THREE.Color(255, 0, 0);
+                    models.getObjectByName("Body").material.emissive = new THREE.Color(255, 0, 0);
+                    textureLogoTeam = new THREE.TextureLoader().load("textures/Ferrari.png"); // We load the correct logo
+                    textureLogoTeam.wrapS = THREE.RepeatWrapping;
+                    textureLogoTeam.wrapT = THREE.RepeatWrapping;
+                    textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
+                    models.getObjectByName("Front Logo").material.map = textureLogoTeam; }
+                else if (team == 1) { // Mercedes   
+                    models.getObjectByName("Front").material.color = new THREE.Color(0, 0, 0);
+                    models.getObjectByName("Front").material.emissive = new THREE.Color(0, 128, 128); 
+                    models.getObjectByName("Body").material.color = new THREE.Color(0, 0, 0);
+                    models.getObjectByName("Body").material.emissive = new THREE.Color(0, 128, 128);
+                    textureLogoTeam = new THREE.TextureLoader().load("textures/Mercedes.png"); // We load the correct logo
+                    textureLogoTeam.wrapS = THREE.RepeatWrapping;
+                    textureLogoTeam.wrapT = THREE.RepeatWrapping;
+                    textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
+                    models.getObjectByName("Front Logo").material.map = textureLogoTeam; }
+                else { // RedBull
+                    models.getObjectByName("Front").material.color = new THREE.Color(0, 0, 160);
+                    models.getObjectByName("Front").material.emissive = new THREE.Color(0, 0, 160); 
+                    models.getObjectByName("Body").material.color = new THREE.Color(0, 0, 160);
+                    models.getObjectByName("Body").material.emissive = new THREE.Color(0, 0, 160);
+                    textureLogoTeam = new THREE.TextureLoader().load("textures/Redbull.png");
+                    textureLogoTeam.wrapS = THREE.RepeatWrapping;
+                    textureLogoTeam.wrapT = THREE.RepeatWrapping;
+                    textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
+                    models.getObjectByName("Front Logo").material.map = textureLogoTeam; } }
+             
+            // Enable or disable shadows according to the option choosen
+            function setShadows() {
+                if (shadows == true) {
+                    pointLight.castShadow = true; // The light can cast shadows
+                    pointLight.shadow.mapSize.width = 512; // Size of the shadows: the bigger number, the higher quality, but worse performance
+                    pointLight.shadow.mapSize.height = 512; 
+                    models.getObjectByName("Body").traverse(function (child) { // We enable every object on the scene to receive and cast shadow
+                        child.receiveShadow = true;
+                        child.castShadow = true; } );
+                    models.getObjectByName("Human").traverse(function (child) { 
+                        child.receiveShadow = true;
+                        child.castShadow = true; } );
+                    models.getObjectByName("Upper Underpass").castShadow = true;
+                    models.getObjectByName("Front Logo").castShadow = false; // The plane containing the logo can't cast shadow
+                    models.getObjectByName("Pit Road").receiveShadow = true;
+                    models.getObjectByName("Gameplay Road").receiveShadow = true; }
+                else {
+                    pointLight.castShadow = false;
+                    models.getObjectByName("Body").traverse(function (child) { 
+                        child.receiveShadow = false;
+                        child.castShadow = false; } );
+                    models.getObjectByName("Human").traverse(function (child) { 
+                        child.receiveShadoe = false;
+                        child.castShadow = false; } );
+                    models.getObjectByName("Upper Underpass").castShadow = false;
+                    models.getObjectByName("Pit Road").receiveShadow = false;
+                    models.getObjectByName("Gameplay Road").receiveShadow = false; } }
+                    
+            
             // Creates and animates the menu
             function init() { 
                 createMenu();

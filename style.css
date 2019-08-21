@@ -48,3 +48,20 @@
     z-index: 100;
     display: block;
 }
+
+#gameover {
+    position: absolute;
+    top: 30%;
+    left: 2%;
+    width: 400px;
+    color: black;
+    outline: 5px solid black;
+    background: white;
+    padding-left: 5px; 
+    padding-right: 6px;
+    padding-bottom: 5px; 
+    font-size: 300%;
+    z-index: 100;
+    text-align: center;
+    display: block;
+}
