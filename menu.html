@@ -24,7 +24,6 @@
             var pointLight2;
             var loader;
             var models;
-            var opponentCar;
             
             var title; // Container with the title screens and the "Play", "Options" and "About" buttons
             var playButton;
@@ -38,20 +37,23 @@
             var resolutionLowButton;
             var shadowsOnButton;
             var shadowsOffButton;
+            var fogOnButton;
+            var fogOffButton;
             var ferrariButton;
             var mercedesButton;
             var redbullButton;
             var optionsExitButton; // Button that closes the Option container
             var about; // Container with the synopsis and commands
             var aboutExitButton; // Button that closes the About container
-            var hud;
-            var gameOverScreen;
+            var hud; // It shows the current score of the player
+            var gameOverScreen; // Screen that shows up when you crash
             
             var menuAnimation; // Timer for the menu animation
             var gameplayAnimation; // Timer for the gameplay animation
             var leftOrRight = 0; // The player turns their car to 0: neutral, 1: left, 2: right
             var cockpit = true; // Type of camera view - true: cockpit view, false: third-person camera
             var pause = false; // Indicates if the game is paused
+            var menu = true; // Indicates if the player is currently in the menu screen
             
             var maxSteering = 0.5; // How far the steering wheel can turn
             var steering = 0.1; // How much the steering wheel turns at each frame
@@ -70,15 +72,18 @@
             var choosenDifficulty = 1.0; // 0.5: Easy, 1: Normal, 1.5: Hard. Choosen through the main menu
             var difficulty = 1.0; // Actual difficulty during game. It increases every 50 passes.
             var team = 0; //0: Ferrari, 1: Mercedes, 2: RedBull
-            var carSpawner; // Timer for the initial spawn of the opponent cars
+            var carSpawner; // Timer for the spawn of the opponent cars
             var timer = 0; // Timer used in carSpawner
             var passes = 0; // How many opponent cars the player has passed
             var crash = false; // Indicates if the player has crashed
+            var crashType = 0; // 0: The car spins to the left, 1: The car spins to the right
+            var damagedTyreDirection = false; // The damaged tyre switches between two directions
             
-            var textureLogoTeam;
+            var textureLogoTeam; // Contains the texture that represent the logo of the team choosen
             var lowResolution = true; // Indicates if the player has choosen a low resolution
             var shadows = false; // Indicates if shadows are enabled
-            var source = 'model4.json'; // Where to find the models
+            var fogEnabled = false; // Indicates if fog has been enabled
+            var source = 'model5.json'; // Where to find the models
             
             // Sets up the basics of the scene. Auxiliary function of createMenu()
             function setScene() {
@@ -91,24 +96,24 @@
                 camera.lookAt(new THREE.Vector3(0,0,0)); // We tell the camera to tell at the origin of the scene
               
                 renderer = new THREE.WebGLRenderer({antialias: true}); // We create a WebGLRenderer with antialiasing enabled
-                setResolutionRenderer();
+                setResolutionRenderer(); // We apply the resolution choosen to the renderer
                 renderer.shadowMap.enabled = true; // The renderer is able to render shadows
-                renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Filters shadows through an algorithm
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Filters shadows through an algorithm that saves up some resources
                 document.body.appendChild(renderer.domElement); // We add the renderer (which is a canvas) to the body of the HTML file
             
-                ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // We create a white ambientLight 
+                ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // We create a white ambientLight that lights up the whole scene
                 scene.add(ambientLight);
             
                 pointLight = new THREE.PointLight(0xffffff, 1.0); // We create a white pointLight
                 pointLight.position.set(9.0, 8.0, 0.0);
                 scene.add(pointLight);
             
-                pointLight2 = new THREE.PointLight(0xffffff, 1.0); // We create a second white pointLight
+                pointLight2 = new THREE.PointLight(0xffffff, 1.0); // We create a second white pointLight for presentation purposes
                 pointLight2.position.set(-2.0, 5.0, 4.0);
                 scene.add(pointLight2); 
                 
                 window.addEventListener('resize', function(event) { // The browser window has changed size!
-                    setResolutionRenderer();
+                    setResolutionRenderer(); // We apply a new resolution to the renderer
                     camera.aspect = window.innerWidth / window.innerHeight; // Scale the aspect ratio of the camera and update its projection matrix
                     camera.updateProjectionMatrix(); } ); }
             
@@ -118,68 +123,77 @@
                 models = new THREE.Group(); // The 3D models will be saved here
                 
                 loader.load(source, 
-                                    function (object) {
-                    models = object; // The models can now be used outside the loader
-                    object.traverse(function (child) { // We print on the console the names of the object's children
-                        console.log(child.name); } );
-                    object.rotateY(-0.3); // We slightly rotate the models for better presentation when the game first loads
+                        function (object) {
+                            models = object; // The models can now be used outside the loader
+                            object.traverse(function (child) { // We print on the console the names of the object's children
+                                console.log(child.name); } );
+                            object.rotateY(-0.3); // We slightly rotate the models for better presentation when the game first loads
                     
-                    // Hide elements
-                    object.getObjectByName("Torso Cockpit").visible = false; // We hide the children that must NOT show up in the menu
-                    object.getObjectByName("Left Hand").visible = false;
-                    object.getObjectByName("Right Hand").visible = false;
-                    object.getObjectByName("Gameplay Road").visible = false;
-                    object.getObjectByName("Damaged Front").visible = false;
-                    object.getObjectByName("Front").visible = true;
+                            // Hide elements
+                            object.getObjectByName("Torso Cockpit").visible = false; // We hide the children that must NOT show up in the menu
+                            object.getObjectByName("Left Hand").visible = false;
+                            object.getObjectByName("Right Hand").visible = false;
+                            object.getObjectByName("Gameplay Road").visible = false;
+                            object.getObjectByName("Damaged Front").visible = false;
+                            object.getObjectByName("Front").visible = true;
                     
-                    // Create collisions box
-                    collisionBoxPlayerVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Front")); // We create an helperBox, which will help us visualize the collision box in the game itself for DEBUGGING purposes
-                    collisionBoxPlayerVisible.scale.set(1.0, 0.8, 0.1); // We resize the boxHelper to better fit the front the car
-                    collisionBoxPlayerVisible.updateMatrix(); // We update the matrix, so the changes take place
-                    collisionBoxPlayerVisible.visible = false;
-                    object.getObjectByName("Front").add(collisionBoxPlayerVisible); // Add the helperBox to the scene so we can see it
-                    collisionBoxOpponentVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Opponent Back")); // We now do the same for the opponent car's back
-                    collisionBoxOpponentVisible.scale.set(0.7, 0.8, 0.2);
-                    collisionBoxOpponentVisible.updateMatrix();
-                    collisionBoxOpponentVisible.name = "Collision Box Visible"; // We add a name, so the box can be referenced later by the getObjectByName() function
-                    collisionBoxOpponentVisible.visible = false;
-                    object.getObjectByName("Opponent Back").add(collisionBoxOpponentVisible);
+                            // Create collisions box
+                            collisionBoxPlayerVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Front")); // We create an helperBox, which will help us visualize the collision box in the game itself for DEBUGGING purposes
+                            collisionBoxPlayerVisible.scale.set(1.0, 0.8, 0.1); // We resize the boxHelper to better fit the front the car
+                            collisionBoxPlayerVisible.updateMatrix(); // We update the matrix, so the changes take place
+                            collisionBoxPlayerVisible.visible = false; // We hide the helperBox
+                            object.getObjectByName("Front").add(collisionBoxPlayerVisible); // Add the helperBox to the scene
+                            collisionBoxOpponentVisible = new THREE.BoxHelper().setFromObject(object.getObjectByName("Opponent Back")); // We now do the same for the opponent car's back
+                            collisionBoxOpponentVisible.scale.set(0.7, 0.8, 0.2);
+                            collisionBoxOpponentVisible.updateMatrix();
+                            collisionBoxOpponentVisible.name = "Collision Box Visible"; // We add a name, so the box can be referenced later by the getObjectByName() function
+                            collisionBoxOpponentVisible.visible = false;
+                            object.getObjectByName("Opponent Back").add(collisionBoxOpponentVisible);
                     
-                    // Adjust materials
-                    object.getObjectByName("Pit Road").material.roughness = 1.00;
-                    object.getObjectByName("Gameplay Road").material.roughness = 1.00;
+                            // Adjust materials
+                            object.getObjectByName("Pit Road").material.roughness = 1.00;
+                            object.getObjectByName("Gameplay Road").material.roughness = 1.00;
                     
-                    // Add textures and set right colors
-                    var texturePirelli = new THREE.TextureLoader().load("textures/Pirelli.png");
-                    texturePirelli.wrapS = THREE.RepeatWrapping;
-                    texturePirelli.wrapT = THREE.RepeatWrapping;
-                    texturePirelli.anisotropy = renderer.getMaxAnisotropy();
-                    texturePirelli.rotation = 1.57;
-                    object.getObjectByName("Upper Underpass").material.map = texturePirelli;
-                    setTeamColors();
+                            // Add textures and set right colors
+                            var texturePirelli = new THREE.TextureLoader().load("textures/Pirelli.png"); // Texture for the upper part of the underpass
+                            texturePirelli.wrapS = THREE.RepeatWrapping; // The texture repeats itself across the U,V coordinates
+                            texturePirelli.wrapT = THREE.RepeatWrapping;
+                            texturePirelli.anisotropy = renderer.getMaxAnisotropy(); // This ensures a texture that is NOT blurry
+                            texturePirelli.rotation = 1.57;
+                            object.getObjectByName("Upper Underpass").material.map = texturePirelli; // We map the texture to the material
+                            var textureTyres = new THREE.TextureLoader().load("textures/TyreNormal.jpg"); // Normal texture for the tyres
+                            textureTyres.wrapS = THREE.RepeatWrapping;
+                            textureTyres.wrapT = THREE.RepeatWrapping;
+                            object.getObjectByName("Left Anterior Tyre").material.normalMap = textureTyres;
+                            object.getObjectByName("Right Anterior Tyre").material.normalMap = textureTyres;
+                            object.getObjectByName("Left Posterior Tyre").material.normalMap = textureTyres;
+                            object.getObjectByName("Right Posterior Tyre").material.normalMap = textureTyres;
+                            var textureCar = new THREE.TextureLoader().load("textures/DustBump.jpg"); // Bump texture for the player's car
+                            textureCar.wrapS = THREE.MirroredRepeatWrapping;
+                            textureCar.wrapT = THREE.MirroredRepeatWrapping;
+                            object.getObjectByName("Front").material.bumpMap = textureCar;
+                            object.getObjectByName("Front").material.bumpScale = 0.02; // We set a low bump 'intensity' level
+                            setTeamColors(); // We apply the right colors and logo texture to the car
                     
-                    // Create texture for the screen on the wheel
-                    wheelScreenText();
+                            // Create texture for the screen on the wheel
+                            wheelScreenText();
                     
-                    // Copy the opponent car
-                    opponentCar = models.getObjectByName("Opponent Body").clone(true);
-                    
-                    scene.add(object); // We add the models to the scene
-                    if (shadows == true) {
-                        setShadows(); } }, 
+                            scene.add(object); // We add the models to the scene
+                            if (shadows == true) { // We enable shadows if the option is selected
+                                setShadows(); } }, 
                 
-                                    function (xhr) { // We print this if the models are loaded correctly
-                    console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
+                        function (xhr) { // We print the current state of the loading process
+                            console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
                 
-                                    function ( error ) { // We print this if an error has occurred during the loading
-                    console.log('An error happened'); } ); }
+                        function (error) { // We print this if an error has occurred during the loading
+                            console.log('An error happened'); } ); }
             
             // Creates the menu screens. Auxiliary function of createMenu()
             function createMenuText() {
                 title = document.createElement('div'); // We create the title logo of the game
                 title.id = "title"; // How the logo should be rendered is detailed in the style.css file
                 title.innerHTML = "Formula Driver"; // The text inside the div
-                document.body.appendChild(title);
+                document.body.appendChild(title); // We add the div to the body of the HTML file
                 
                 playButton = document.createElement('button'); // Creates the Play button inside the title element
                 playButton.id = "Play";
@@ -199,10 +213,10 @@
                 aboutButton.style.background = "yellow";
                 title.appendChild(aboutButton);
                 
-                easyButton = document.createElement('button'); // Creates all the buttons inside the Options screen
+                easyButton = document.createElement('button'); // We create all the buttons inside the Options screen
                 easyButton.id = "Easy";
                 easyButton.innerHTML = "EASY";
-                if (choosenDifficulty == 0.5) {
+                if (choosenDifficulty == 0.5) { // We disable buttons if their options have already been choosen
                     easyButton.disabled = true; }
                 normalButton = document.createElement('button');
                 normalButton.id = "Normal";
@@ -236,7 +250,18 @@
                 shadowsOnButton.innerHTML = "ON";
                 if (shadows == true) {
                     shadowsOnButton.disabled = true; }
-                
+                    
+                fogOffButton = document.createElement('button');
+                fogOffButton.id = "fogOff";
+                fogOffButton.innerHTML = "OFF";
+                if (fogEnabled == false) {
+                    fogOffButton.disabled = true; }
+                fogOnButton = document.createElement('button');
+                fogOnButton.id = "fogOn";
+                fogOnButton.innerHTML = "ON";
+                if (fogEnabled == true) {
+                    fogOnButton.disabled = true; }
+                 
                 ferrariButton = document.createElement('button');
                 ferrariButton.id = "Ferrari";
                 ferrariButton.innerHTML = "FERRARI";
@@ -269,6 +294,10 @@
                 options.appendChild(shadowsOffButton);
                 options.appendChild(shadowsOnButton);
                 options.innerHTML += "<br>('ON' option may impact performance)";
+                options.innerHTML += "<br><br>Fog: <br>";
+                options.appendChild(fogOffButton);
+                options.appendChild(fogOnButton);
+                options.innerHTML += "<br>('ON' option may impact performance)";
                 options.innerHTML += "<br><br>Team: <br>";
                 options.appendChild(ferrariButton);
                 options.appendChild(mercedesButton);
@@ -285,12 +314,13 @@
                 about = document.createElement('div'); // Creates a div where the synopsis and controlls are displayed
                 about.id = "description";
                 var synopsis = document.createElement('div');
-                synopsis.innerHTML = "SYNOPSIS";
+                synopsis.innerHTML = "PREMISE";
                 synopsis.style.textAlign = "center";
                 about.appendChild(synopsis);
-                about.innerHTML += "It was supposed to be an easy weekend, but after an initial crash at the first corner of the race, you find yourself in the last place.<br>";
-                about.innerHTML += "Not all hope is lost however.<br>";
-                about.innerHTML += "Your car is still the fastest of the grid and the layout of the track, an unnatural long straight, gives you ample possibilities to pass your rivals.<br>";
+                about.innerHTML += "It was supposed to be an easy weekend, but after an unfortunate qualifying session, you had to start the race at the last place.<br>";
+                about.innerHTML += "Not all hope is lost however!<br>";
+                about.innerHTML += "Your car is still the fastest of the grid and the layout of the track, an unnatural long straight, gives you ample possibilities to pass your rivals... who happen to be in thousands!<br>";
+                about.innerHTML += "To help you, your engineers have installed a device that increases your speed after every 50 passes: just be careful!<br>";
                 about.innerHTML += "See you on the track, driver!<br><br>";
                 var controls = document.createElement('div');
                 controls.innerHTML = "CONTROLS";
@@ -298,7 +328,7 @@
                 about.appendChild(controls);
                 about.innerHTML += "- 'a': Move your car to the left.<br>";
                 about.innerHTML += "- 'd': Move your car to the right.<br>";
-                about.innerHTML += "- 'v': Change between the two cameras: third-person or cockpit view.<br>";
+                about.innerHTML += "- 'v': Switch between the two camera views.<br>";
                 about.innerHTML += "- 'p': Pause or resume the game.<br><br>";
                 document.body.appendChild(about);
                 about.style.visibility = "hidden";
@@ -364,6 +394,17 @@
                     document.getElementById("shadowsOff").disabled = false; 
                     shadows = true;
                     setShadows(); }
+                    
+                // Option events: fog
+                document.getElementById("fogOff").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("fogOn").disabled = false;
+                    fogEnabled = false; }
+                    
+                document.getElementById("fogOn").onclick = function() {
+                    this.disabled = true;
+                    document.getElementById("fogOff").disabled = false; 
+                    fogEnabled = true; }
                 
                 // Option events: teams
                 document.getElementById("Ferrari").onclick = function() {
@@ -410,6 +451,7 @@
                     
             // Creates the menu of the game. Auxiliary function of init()
             function createMenu() {
+                document.title = "Formula Driver - Menu"; 
                 setScene();
                 modelsLoader();
                 createMenuText();
@@ -423,15 +465,15 @@
             
             // Spawn a new opponent car at the end of the road. Auxiliary function of createGameplay() and animateGameplayRoad()
             function spawnNewCar() {
-                if (pause == false) {
+                if (pause == false) { // We update the timer if the game has not been paused
                     timer = timer+1;
-                    if (timer >= 100*(2-difficulty)) {
-                        timer = 0;
+                    if (timer >= 100*(2-difficulty)) { // The max value for the timer depends on the actual difficulty level
+                        timer = 0; // Wer reset the timer. Time to spawn a new car!
                         var min = -0.385; // Left side of the road
                         var max = 0.385; // Right side of the road
                         var positionY = (Math.random() * (max - min) + min).toFixed(3); // Chooses a value between min and max
-                        var car = new THREE.Group(); // Creates a new car
-                        car = opponentCar.clone(true);
+                        var car = new THREE.Group(); // Creates a new opponent car
+                        car = models.getObjectByName("Opponent Body").clone(true);
                         models.getObjectByName("Gameplay Road").add(car); // Add the car to the road in the random coordinates obtained
                         car.position.set(-spawnPoint, positionY, car.position.z);
                         var color = Math.floor(Math.random() * 5); // Chooses a random color for the opponent car
@@ -455,6 +497,7 @@
             // Creates the gameplay scene coming from the menu
             function createGameplay() {
                 document.title = "Formula Driver - In Game"; // Change the title of the web page
+                menu = false;
                 
                 cancelAnimationFrame(menuAnimation); // Stops the spinning animation of the menu
                 
@@ -475,11 +518,14 @@
                 camera.position.set(0.6, 2.1, -0.3); // We set the cockpit cam
                 camera.fov = 70; // We change the FOV
                 camera.updateProjectionMatrix(); // We update the camera projection matrix so that we can apply the above changes
+                if (fogEnabled == true) { // We apply fog to the scene if the option has been enabled
+                    var fog = new THREE.Fog(new THREE.Color(0xA9A9A9), 0, 300.0);
+                    scene.fog = fog; }
                
-                difficulty = choosenDifficulty;
+                difficulty = choosenDifficulty; // We apply the difficulty choosen 
                 carSpawner = setInterval(spawnNewCar); // We spawn a new initial opponent car every few moments
                 
-                hud = document.createElement('div');
+                hud = document.createElement('div'); // We create the HUD
                 hud.id = "hud";
                 hud.innerHTML = "Passes: " + passes;
                 hud.innerHTML += "<br>Speed: " + difficulty.toFixed(1);
@@ -492,7 +538,7 @@
                         leftOrRight = 1; }
                     else if (event.keyCode == 68) { // The player presses 'd': the car needs to turn right
                         leftOrRight = 2; } 
-                    else if (event.keyCode == 86 && pause == false && crash == false) { // The player presses 'v': switches between the two cameras
+                    else if (event.keyCode == 86 && pause == false && crash == false && menu == false) { // The player presses 'v': switches between the two cameras
                         if (cockpit == true) {
                             camera.position.set(-5.6, 5.1, 2.7);
                             document.getElementById("hud").style.visibility = "visible";
@@ -501,7 +547,7 @@
                             camera.position.set(0.6, 2.1, -0.3);
                             document.getElementById("hud").style.visibility = "hidden";
                             cockpit = true; } }
-                    else if (event.keyCode == 80 && pause == false && crash == false) { // The player presses 'p' while playing: the game is paused
+                    else if (event.keyCode == 80 && pause == false && crash == false && menu == false) { // The player presses 'p' while playing: the game is paused
                         pause = true;
                         document.title = "Formula Driver - Paused";
                         cancelAnimationFrame(gameplayAnimation); }
@@ -569,10 +615,16 @@
                 try {
                     models.getObjectByName("Gameplay Road").traverse(function (child) { // Children on the road navigate from negative x to positive x   
                         // Collision check
-                        if (child.name == "Opponent Body" && child.position.x > -0.02) {
+                        if (child.name == "Opponent Body" && child.position.x > -0.02) { // We enable collision boxes only when an opponent car is close to the player
                             collisionBoxOpponent = new THREE.Box3().setFromObject(child.getObjectByName("Collision Box Visible")); // Creation of collision boxes from boxHelpers
                             collisionBoxPlayer = new THREE.Box3().setFromObject(collisionBoxPlayerVisible);
                             if (collisionBoxOpponent.intersectsBox(collisionBoxPlayer)) { // Check intersection for collisions
+                                if (models.getObjectByName("Wheel").rotation.z > 0) { // The car spins to the left
+                                    crashType = 0; }
+                                else if (models.getObjectByName("Wheel").rotation.z < 0) { // The car spins to the right
+                                    crashType = 1; }
+                                else { // The car spins in a random direction
+                                    crashType = Math.floor(Math.random() * 2); }
                                 crash = true; } }
                     
                         // Pass check
@@ -614,28 +666,55 @@
             
             // Animation of the player's crash. Auxiliary function of gameOver()
             function crashAnimation() {
-                if (models.getObjectByName("Body").rotation.y > -0.7) { // The car spins after crashing
-                    models.getObjectByName("Body").rotateY(0.12); }
-                else {
-                    gameOverScreen.style.visibility = "visible"; }
-                    
-                if (leftOrRight == 1 && models.getObjectByName("Wheel").rotation.z <= maxSteering) { // The player is still able to turn the wheel
-                    models.getObjectByName("Wheel").rotateZ(steering); }
-                else if (leftOrRight == 2 && models.getObjectByName("Wheel").rotation.z >= -maxSteering) {
-                    models.getObjectByName("Wheel").rotateZ(-steering); }
-                else if (leftOrRight == 0 && models.getObjectByName("Wheel").rotation.z > 0.1) {
-                    models.getObjectByName("Wheel").rotateZ(-steering); }
-                else if (leftOrRight == 0 && models.getObjectByName("Wheel").rotation.z < -0.1) {
-                    models.getObjectByName("Wheel").rotateZ(steering); }
+                // Car spin animation
+                if (crashType == 0) { // The car spins to the left
+                    if (models.getObjectByName("Body").rotation.y > -0.7) { // The car spins after crashing
+                        models.getObjectByName("Body").rotateY(0.12);
+                        camera.translateZ(0.02); }
+                    else { // The animation is over
+                        gameOverScreen.style.visibility = "visible"; } }
+                else if (crashType == 1) { // The car spins to the right
+                    if (models.getObjectByName("Body").rotation.y < 0.7) { 
+                        models.getObjectByName("Body").rotateY(-0.12);
+                        camera.translateZ(0.02); }
+                    else {
+                        gameOverScreen.style.visibility = "visible"; } }
                 
-                if (crash == true) {
+                // Wheel animation
+                var rotazione = models.getObjectByName("Damaged Right Anterior Tyre").rotation; 
+                models.getObjectByName("Damaged Right Anterior Tyre").rotation.set(rotazione.x, 0, rotazione.z);
+                if (leftOrRight == 1 && models.getObjectByName("Wheel").rotation.z <= maxSteering) { // The player is still able to turn the wheel
+                    models.getObjectByName("Wheel").rotateZ(steering);
+                    models.getObjectByName("Damaged Right Anterior Tyre").rotateX(-tyreTurning/2); }
+                else if (leftOrRight == 2 && models.getObjectByName("Wheel").rotation.z >= -maxSteering) {
+                    models.getObjectByName("Wheel").rotateZ(-steering);
+                    models.getObjectByName("Damaged Right Anterior Tyre").rotateX(tyreTurning/2); }
+                else if (leftOrRight == 0 && models.getObjectByName("Wheel").rotation.z > 0.1) {
+                    models.getObjectByName("Wheel").rotateZ(-steering); 
+                    models.getObjectByName("Damaged Right Anterior Tyre").rotateX(tyreTurning/2); }
+                else if (leftOrRight == 0 && models.getObjectByName("Wheel").rotation.z < -0.1) {
+                    models.getObjectByName("Wheel").rotateZ(steering);
+                    models.getObjectByName("Damaged Right Anterior Tyre").rotateX(-tyreTurning/2); }
+                
+                // Damaged tyre animation
+                if (damagedTyreDirection == false && models.getObjectByName("Damaged Right Anterior Tyre").rotation.z > -0.4) { // The damaged tyre keeps switching rotation direction
+                    models.getObjectByName("Damaged Right Anterior Tyre").rotateZ(-tyreSpeed/10); }
+                else {
+                    damagedTyreDirection = true; }
+                if (damagedTyreDirection == true && models.getObjectByName("Damaged Right Anterior Tyre").rotation.z < -0.1) {
+                    models.getObjectByName("Damaged Right Anterior Tyre").rotateZ(tyreSpeed/10); }
+                 else {
+                    damagedTyreDirection = false; }
+                
+                if (crash == true) { // Continues to render the game over screen until the player returns to the main menu
                  requestAnimationFrame(crashAnimation); }
                 renderer.render(scene, camera); }     
             
             // The player has hit an opponent's car
             function gameOver() {
-                document.body.removeChild(hud);
-                gameOverScreen = document.createElement('div');
+                document.title = "Formula Driver - Game Over"
+                document.body.removeChild(hud); // We remove the HUD
+                gameOverScreen = document.createElement('div'); // We create the game over screen
                 gameOverScreen.id = "gameover";
                 gameOverScreen.innerHTML = "GAME OVER!";
                 gameOverScreen.innerHTML += "<br>Passes: " + passes;
@@ -647,24 +726,25 @@
                 gameOverScreen.appendChild(continueButton);
                 gameOverScreen.style.visibility = "hidden";
                 
-                models.getObjectByName("Front").visible = false;
-                models.getObjectByName("Damaged Front").visible = true;
+                models.getObjectByName("Front").visible = false; // We hide the front of the car...
+                models.getObjectByName("Damaged Front").visible = true; //... to show instead its damaged version!
                 
-                // window.innerWidth / window.innerHeight
-                camera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
-                models.getObjectByName("Front Cockipt").add(camera);
-                camera.position.set(0.0, 1.4, 3.0);
+                camera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000); // We update the camera
+                models.getObjectByName("Front Cockipt").add(camera); // We add the camera to the cockpit so that it can rotate in synch with the car
+                camera.position.set(0.0, 1.4, 2.8);
                 camera.rotation.set(-0.2, 0, 0);
-                camera.scale = new THREE.Vector3(0.42, 1.0, 1.02);
+                // camera.scale = new THREE.Vector3(0.42, 1.0, 1.02);
                 
-                document.getElementById("Menu").onclick = function() {
+                document.getElementById("Menu").onclick = function() { // The player returns to the menu. We reset all important values and restart the game
                     document.body.removeChild(gameOverScreen);
                     document.body.removeChild(renderer.domElement);
                     difficulty = 1.0;
                     passes = 0;
                     timer = 0;
                     crash = false;
+                    damagedTyreDirection = false;
                     cockpit = true;
+                    menu = true;
                     init(); };
                 
                 wheelScreenText();
@@ -678,10 +758,13 @@
                 canvas.height = 150;
                 text.font = '50px Helvetica';
                 text.fillStyle = 'white'; // Color of the text
-                if (crash == false) {
+                if (menu == true) { // Message to print when the player is at the menu screen
+                    text.fillText('READY TO', 70, 55);
+                    text.fillText('   START', 70, 120); }
+                else if (crash == false) { // Message to print during regular gameplay
                     text.fillText('Passes: ' + passes, 70, 55); // Second and third parameter are x, y coordinates of text
                     text.fillText('Speed: ' + difficulty.toFixed(1), 70, 120); }
-                else {
+                else { // Message to print when the player has crashed
                     text.fillText('TERMINAL', 70, 55);
                     text.fillText(' DAMAGE', 70, 120); }
                 var textureScreen = new THREE.Texture(canvas); // Obtains the canvas as a texture
@@ -717,7 +800,7 @@
                     models.getObjectByName("Front").material.emissive = new THREE.Color(0, 128, 128); 
                     models.getObjectByName("Body").material.color = new THREE.Color(0, 0, 0);
                     models.getObjectByName("Body").material.emissive = new THREE.Color(0, 128, 128);
-                    textureLogoTeam = new THREE.TextureLoader().load("textures/Mercedes.png"); // We load the correct logo
+                    textureLogoTeam = new THREE.TextureLoader().load("textures/Mercedes.png");
                     textureLogoTeam.wrapS = THREE.RepeatWrapping;
                     textureLogoTeam.wrapT = THREE.RepeatWrapping;
                     textureLogoTeam.anisotropy = renderer.getMaxAnisotropy();
