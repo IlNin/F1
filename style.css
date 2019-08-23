@@ -37,7 +37,7 @@
     position: absolute;
     top: 80%;
     left: 5%;
-    width: 200px;
+    width: 160px;
     color: black;
     outline: 5px solid black;
     background: white;
@@ -51,8 +51,8 @@
 
 #gameover {
     position: absolute;
-    top: 30%;
-    left: 2%;
+    top: 10%;
+    left: 10%;
     width: 400px;
     color: black;
     outline: 5px solid black;
