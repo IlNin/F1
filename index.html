@@ -525,7 +525,17 @@
                             
                 document.onkeyup = function() { 
                     if (event.keyCode == 65 || event.keyCode == 68) { // The player stops turning
-                        leftOrRight = 0; } }; }
+                        leftOrRight = 0; } };
+
+                // TOUCH CONTROLS FOR MOVEMENT
+                document.onmousedown = function() {
+                    if (event.screenX < window.innerWidth/2) {
+                        leftOrRight = 1; }
+                    else if (event.screenX > window.innerWidth/2) {
+                        leftOrRight = 2; } };
+                
+                document.onmouseup = function() {
+                    leftOrRight = 0; }; }
             
             // Creates the gameplay scene coming from the menu
             function createGameplay() {
