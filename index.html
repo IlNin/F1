@@ -536,7 +536,7 @@
                         leftOrRight = 0; } };
 
                 // MOUSE CONTROLS FOR MOVEMENT
-                document.onmousedown = function() {
+                document.ontouchstart = function() {
                     if (event.screenX < window.innerWidth/2) {
                         leftOrRight = 1; }
                     else if (event.screenX > window.innerWidth/2) {
