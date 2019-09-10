@@ -477,7 +477,7 @@
             function spawnNewCar() {
                 if (pause == false) { // We update the timer if the game has not been paused
                     timer = timer+1;
-                    if (timer >= 50*(2-difficulty)) { // The max value for the timer depends on the actual difficulty level
+                    if (timer >= 30*(2-difficulty)) { // The max value for the timer depends on the actual difficulty level
                         console.log("Sono qui!");
                         timer = 0; // Wer reset the timer. Time to spawn a new car!
                         var min = -0.385; // Left side of the road
@@ -573,7 +573,7 @@
                     scene.fog = fog; }
                
                 difficulty = choosenDifficulty; // We apply the difficulty choosen 
-                carSpawner = setInterval(spawnNewCar, 10); // We spawn a new initial opponent car every few moments
+                carSpawner = setInterval(spawnNewCar, 17); // We spawn a new initial opponent car every few moments
                 
                 hud = document.createElement('div'); // We create the HUD
                 hud.id = "hud";
