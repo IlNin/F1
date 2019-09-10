@@ -478,7 +478,6 @@
                 if (pause == false) { // We update the timer if the game has not been paused
                     timer = timer+1;
                     if (timer >= 30*(2-difficulty)) { // The max value for the timer depends on the actual difficulty level
-                        console.log("Sono qui!");
                         timer = 0; // Wer reset the timer. Time to spawn a new car!
                         var min = -0.385; // Left side of the road
                         var max = 0.385; // Right side of the road
@@ -503,7 +502,9 @@
                         car.getObjectByName("Opponent Back").material = material; 
                         car.getObjectByName("Opponent Front").material = material;
                         car.getObjectByName("Opponent Right Side").material = material;
-                        car.getObjectByName("Opponent Left Side").material = material; } } }
+                        car.getObjectByName("Opponent Left Side").material = material; } }
+                if (crash == false) { // No new cars are spawned if there's a crash
+                    requestAnimationFrame(spawnNewCar); } }
             
             // Adds controls to the game. Auxiliary function of createGameplay()
             function setControls() {
@@ -534,7 +535,7 @@
                     if (event.keyCode == 65 || event.keyCode == 68) { // The player stops turning
                         leftOrRight = 0; } };
 
-                // TOUCH CONTROLS FOR MOVEMENT
+                // MOUSE CONTROLS FOR MOVEMENT
                 /* document.onmousedown = function() {
                     if (event.screenX < window.innerWidth/2) {
                         leftOrRight = 1; }
@@ -573,7 +574,7 @@
                     scene.fog = fog; }
                
                 difficulty = choosenDifficulty; // We apply the difficulty choosen 
-                carSpawner = setInterval(spawnNewCar, 17); // We spawn a new initial opponent car every few moments
+                carSpawner = requestAnimationFrame(spawnNewCar); // We spawn a new initial opponent car every few moments.
                 
                 hud = document.createElement('div'); // We create the HUD
                 hud.id = "hud";
