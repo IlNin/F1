@@ -180,6 +180,12 @@
                 models.getObjectByName("Right Anterior Tyre").material.normalMap = textureTyres;
                 models.getObjectByName("Left Posterior Tyre").material.normalMap = textureTyres;
                 models.getObjectByName("Right Posterior Tyre").material.normalMap = textureTyres;
+                var textureMetal = new THREE.TextureLoader().load("textures/MetalNormal.jpg"); // Normal texture for the body of the car
+                textureMetal.wrapS = THREE.RepeatWrapping;
+                textureMetal.wrapT = THREE.RepeatWrapping;
+                models.getObjectByName("Front").material.normalMap = textureMetal;
+                models.getObjectByName("Front").material.normalScale = new THREE.Vector2(0.1, 0.1);
+                console.log(models.getObjectByName("Front").material);
                 setTeamColors(); // We apply the right colors and logo texture to the car
                     
                 // Create texture for the screen on the wheel
@@ -471,7 +477,8 @@
             function spawnNewCar() {
                 if (pause == false) { // We update the timer if the game has not been paused
                     timer = timer+1;
-                    if (timer >= 100*(2-difficulty)) { // The max value for the timer depends on the actual difficulty level
+                    if (timer >= 50*(2-difficulty)) { // The max value for the timer depends on the actual difficulty level
+                        console.log("Sono qui!");
                         timer = 0; // Wer reset the timer. Time to spawn a new car!
                         var min = -0.385; // Left side of the road
                         var max = 0.385; // Right side of the road
@@ -566,7 +573,7 @@
                     scene.fog = fog; }
                
                 difficulty = choosenDifficulty; // We apply the difficulty choosen 
-                carSpawner = setInterval(spawnNewCar); // We spawn a new initial opponent car every few moments
+                carSpawner = setInterval(spawnNewCar, 10); // We spawn a new initial opponent car every few moments
                 
                 hud = document.createElement('div'); // We create the HUD
                 hud.id = "hud";
