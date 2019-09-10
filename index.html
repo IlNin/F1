@@ -185,7 +185,6 @@
                 textureMetal.wrapT = THREE.RepeatWrapping;
                 models.getObjectByName("Front").material.normalMap = textureMetal;
                 models.getObjectByName("Front").material.normalScale = new THREE.Vector2(0.1, 0.1);
-                console.log(models.getObjectByName("Front").material);
                 setTeamColors(); // We apply the right colors and logo texture to the car
                     
                 // Create texture for the screen on the wheel
@@ -537,9 +536,9 @@
 
                 // MOUSE CONTROLS FOR MOVEMENT
                 document.ontouchstart = function() {
-                    if (event.screenX < window.innerWidth/2) {
+                    if (event.changedTouches[0].pageX < window.innerWidth/2) {
                         leftOrRight = 1; }
-                    else if (event.screenX > window.innerWidth/2) {
+                    else if (event.changedTouches[0].pageX > window.innerWidth/2) {
                         leftOrRight = 2; } };
                 
                 document.onmouseup = function() {
