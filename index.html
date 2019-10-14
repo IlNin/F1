@@ -7,6 +7,7 @@
             body { margin: 0; }
             canvas { width: 100%; height: 100% }
         </style>
+        <link href='https://fonts.googleapis.com/css?family=Noto Serif' rel='stylesheet'>
         <link rel="stylesheet" type="text/css" href="style.css"/>
     </head>
     
@@ -534,7 +535,7 @@
                     if (event.keyCode == 65 || event.keyCode == 68) { // The player stops turning
                         leftOrRight = 0; } };
 
-                // MOBILE CONTROLS FOR MOVEMENT
+                // EXTRA: MOBILE CONTROLS FOR MOVEMENT SO I CAN TEST THE GAME ON MY PHONE
                 document.ontouchstart = function() {
                     if (event.changedTouches[0].pageX < window.innerWidth/2) {
                         leftOrRight = 1; }
@@ -849,7 +850,10 @@
                     models.getObjectByName("Upper Underpass").castShadow = true;
                     models.getObjectByName("Front Logo").castShadow = false; // The plane containing the logo can't cast shadow
                     models.getObjectByName("Pit Road").receiveShadow = true;
-                    models.getObjectByName("Gameplay Road").receiveShadow = true; }
+                    models.getObjectByName("Gameplay Road").receiveShadow = true;
+                    models.getObjectByName("Opponent Body").castShadow = true; 
+                    models.getObjectByName("Opponent Back").castShadow = true; 
+                    models.getObjectByName("Opponent Front").castShadow = true; }
                 else {
                     pointLight.castShadow = false;
                     models.getObjectByName("Body").traverse(function (child) { 
@@ -860,7 +864,10 @@
                         child.castShadow = false; } );
                     models.getObjectByName("Upper Underpass").castShadow = false;
                     models.getObjectByName("Pit Road").receiveShadow = false;
-                    models.getObjectByName("Gameplay Road").receiveShadow = false; } }
+                    models.getObjectByName("Gameplay Road").receiveShadow = false;
+                    models.getObjectByName("Opponent Body").castShadow = false; 
+                    models.getObjectByName("Opponent Back").castShadow = false; 
+                    models.getObjectByName("Opponent Front").castShadow = false;} }
                           
             // Creates and animates the menu
             function init() { 
