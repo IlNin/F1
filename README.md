@@ -1,6 +1,6 @@
 # Formula-Driver
 A 3D game developed using the Three.js library where you drive a Formula 1 car and dodge incoming traffic.<br/>
-<b>Features:</br>
+<b>Features:</b>
 - Steer your Formula 1 car to right and left in order to dodge incoming traffic. Every time you pass 50 opponent cars, your car will go even faster: how far can you get?
 - Choose your team between Ferrari, Mercedes and Red Bull: this affects your car's colors and logo.
 - Switch between cockpit view and third person by pressing 'v'.
