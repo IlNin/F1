@@ -4,8 +4,8 @@ A 3D game developed using the Three.js library where you drive a Formula 1 car a
 
 <b>Features:</b>
 - Steer your Formula 1 car to right and left in order to dodge incoming traffic. Every time you pass 50 opponent cars, your car will go even faster: how far can you get?
-- Choose your team between Ferrari, Mercedes and Red Bull: this affects your car's colors and logo, but not speed and handling, so pick your favorite without any worry!.
-- Switch between cockpit view and third person by pressing 'v'.
+- Choose your team between Ferrari, Mercedes and Red Bull: this affects your car's colors and logo, but not speed and handling, so pick your favorite without any worry!
+- Switch between cockpit view and third person by pressing 'v' while playing.
 - Customizable difficulty settings and graphic options, such as resolution, shadows and fog effects.
 
 
